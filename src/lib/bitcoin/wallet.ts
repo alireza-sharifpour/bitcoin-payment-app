@@ -44,6 +44,56 @@ export function generateMnemonic(): string {
 }
 
 /**
+ * Converts a BIP39 mnemonic phrase to a seed using PBKDF2
+ *
+ * @param {string} mnemonic - The mnemonic phrase to convert to seed
+ * @param {string} [passphrase=""] - Optional passphrase for additional security (defaults to empty string)
+ * @returns {Buffer} A 64-byte seed derived from the mnemonic
+ *
+ * @example
+ * const mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+ * const seed = mnemonicToSeed(mnemonic);
+ * console.log(seed.toString('hex')); // "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04"
+ *
+ * @example
+ * // With passphrase
+ * const seed = mnemonicToSeed(mnemonic, "my passphrase");
+ *
+ * @security This function generates cryptographic seed material and should only be used server-side.
+ * The returned seed should be handled securely and never exposed to the client.
+ */
+export function mnemonicToSeed(
+  mnemonic: string,
+  passphrase: string = ""
+): Buffer {
+  try {
+    // Validate the mnemonic before processing
+    if (!bip39.validateMnemonic(mnemonic)) {
+      throw new Error("Invalid mnemonic phrase");
+    }
+
+    // Convert mnemonic to seed using BIP39 specification
+    // This uses PBKDF2 with 2048 iterations internally
+    const seed = bip39.mnemonicToSeedSync(mnemonic, passphrase);
+
+    // Verify the seed is the expected length (64 bytes = 512 bits)
+    if (seed.length !== 64) {
+      throw new Error(
+        `Invalid seed length: expected 64 bytes, got ${seed.length}`
+      );
+    }
+
+    return seed;
+  } catch (error) {
+    throw new Error(
+      `Failed to convert mnemonic to seed: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
  * Validates if a given mnemonic phrase is valid according to BIP39
  *
  * @param {string} mnemonic - The mnemonic phrase to validate
