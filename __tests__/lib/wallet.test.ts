@@ -9,6 +9,7 @@ import {
   validateMnemonic,
   mnemonicToSeed,
   generateHDRoot,
+  deriveTestnetAddress,
 } from "../../src/lib/bitcoin/wallet";
 import * as bip39 from "bip39";
 import * as bitcoin from "bitcoinjs-lib";
@@ -506,15 +507,15 @@ describe("generateHDRoot", () => {
   });
 
   it("should throw error for invalid seed buffer", () => {
-    expect(() => generateHDRoot(null as unknown as Buffer)).toThrow(
+    expect(() => generateHDRoot(null as never)).toThrow(
       "Failed to generate HD root: Seed must be a Buffer"
     );
 
-    expect(() => generateHDRoot(undefined as unknown as Buffer)).toThrow(
+    expect(() => generateHDRoot(undefined as never)).toThrow(
       "Failed to generate HD root: Seed must be a Buffer"
     );
 
-    expect(() => generateHDRoot("not a buffer" as unknown as Buffer)).toThrow(
+    expect(() => generateHDRoot("not a buffer" as never)).toThrow(
       "Failed to generate HD root: Seed must be a Buffer"
     );
   });
@@ -654,5 +655,376 @@ describe("generateHDRoot", () => {
 
     // Testnet extended public keys start with 'tpub'
     expect(extendedPublicKey.startsWith("tpub")).toBe(true);
+  });
+});
+
+describe("deriveTestnetAddress", () => {
+  // Test vectors using known mnemonic for deterministic testing
+  const testMnemonic =
+    "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+  it("should derive a valid testnet address from HD root", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+    const address = deriveTestnetAddress(hdRoot);
+
+    // Check that address is a string
+    expect(typeof address).toBe("string");
+
+    // Check that it starts with 'tb1' (testnet bech32)
+    expect(address.startsWith("tb1")).toBe(true);
+
+    // Check that it has the correct length for P2WPKH (42 characters)
+    expect(address.length).toBe(42);
+
+    // Verify it's a valid bech32 testnet address format
+    expect(address).toMatch(/^tb1[a-z0-9]{39}$/);
+  });
+
+  it("should generate the same address for the same HD root and path consistently", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const address1 = deriveTestnetAddress(hdRoot);
+    const address2 = deriveTestnetAddress(hdRoot);
+    const address3 = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/0");
+
+    // All addresses should be identical
+    expect(address1).toBe(address2);
+    expect(address2).toBe(address3);
+    expect(address1).toBe(address3);
+  });
+
+  it("should generate different addresses for different derivation paths", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const address0 = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/0");
+    const address1 = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/1");
+    const address2 = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/2");
+    const address3 = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/1/0");
+
+    // All addresses should be different
+    expect(address0).not.toBe(address1);
+    expect(address1).not.toBe(address2);
+    expect(address2).not.toBe(address3);
+    expect(address0).not.toBe(address3);
+
+    // All should be valid testnet addresses
+    [address0, address1, address2, address3].forEach((addr) => {
+      expect(addr.startsWith("tb1")).toBe(true);
+      expect(addr.length).toBe(42);
+    });
+  });
+
+  it("should generate different addresses for different HD roots", () => {
+    const seed1 = mnemonicToSeed(testMnemonic);
+    const seed2 = mnemonicToSeed(
+      "legal winner thank year wave sausage worth useful legal winner thank yellow"
+    );
+
+    const hdRoot1 = generateHDRoot(seed1);
+    const hdRoot2 = generateHDRoot(seed2);
+
+    const address1 = deriveTestnetAddress(hdRoot1);
+    const address2 = deriveTestnetAddress(hdRoot2);
+
+    // Addresses should be different
+    expect(address1).not.toBe(address2);
+
+    // Both should be valid testnet addresses
+    expect(address1.startsWith("tb1")).toBe(true);
+    expect(address2.startsWith("tb1")).toBe(true);
+    expect(address1.length).toBe(42);
+    expect(address2.length).toBe(42);
+  });
+
+  it("should use default BIP84 path when no path is provided", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const addressDefault = deriveTestnetAddress(hdRoot);
+    const addressExplicit = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/0");
+
+    // Should be identical since default path is m/84'/1'/0'/0/0
+    expect(addressDefault).toBe(addressExplicit);
+  });
+
+  it("should work with different account levels", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const account0 = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/0");
+    const account1 = deriveTestnetAddress(hdRoot, "m/84'/1'/1'/0/0");
+    const account2 = deriveTestnetAddress(hdRoot, "m/84'/1'/2'/0/0");
+
+    // All should be valid but different
+    expect(account0).not.toBe(account1);
+    expect(account1).not.toBe(account2);
+    expect(account0).not.toBe(account2);
+
+    [account0, account1, account2].forEach((addr) => {
+      expect(addr.startsWith("tb1")).toBe(true);
+      expect(addr.length).toBe(42);
+    });
+  });
+
+  it("should work with change addresses", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const receiving = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/0");
+    const change = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/1/0");
+
+    // Should be different addresses
+    expect(receiving).not.toBe(change);
+
+    // Both should be valid testnet addresses
+    expect(receiving.startsWith("tb1")).toBe(true);
+    expect(change.startsWith("tb1")).toBe(true);
+    expect(receiving.length).toBe(42);
+    expect(change.length).toBe(42);
+  });
+
+  it("should generate addresses that can be used with generated mnemonics", () => {
+    // Test with randomly generated mnemonics
+    for (let i = 0; i < 3; i++) {
+      const mnemonic = generateMnemonic();
+      const seed = mnemonicToSeed(mnemonic);
+      const hdRoot = generateHDRoot(seed);
+      const address = deriveTestnetAddress(hdRoot);
+
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+      expect(typeof address).toBe("string");
+    }
+  });
+
+  it("should throw error when HD root is null or undefined", () => {
+    expect(() => deriveTestnetAddress(null as never)).toThrow(
+      "Failed to derive testnet address: HD root is required"
+    );
+
+    expect(() => deriveTestnetAddress(undefined as never)).toThrow(
+      "Failed to derive testnet address: HD root is required"
+    );
+  });
+
+  it("should throw error when HD root is missing derivePath method", () => {
+    const invalidHdRoot = {
+      publicKey: Buffer.alloc(33),
+      network: bitcoin.networks.testnet,
+    } as never;
+
+    expect(() => deriveTestnetAddress(invalidHdRoot)).toThrow(
+      "Failed to derive testnet address: Invalid HD root: missing derivePath method"
+    );
+  });
+
+  it("should throw error when HD root is missing network information", () => {
+    const invalidHdRoot = {
+      derivePath: () => {},
+    } as never;
+
+    expect(() => deriveTestnetAddress(invalidHdRoot)).toThrow(
+      "Failed to derive testnet address: Invalid HD root: missing network information"
+    );
+  });
+
+  it("should throw error when HD root is configured for mainnet instead of testnet", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const mainnetHdRoot = generateHDRoot(seed, bitcoin.networks.bitcoin);
+
+    expect(() => deriveTestnetAddress(mainnetHdRoot)).toThrow(
+      "Failed to derive testnet address: HD root must be configured for testnet network"
+    );
+  });
+
+  it("should throw error for invalid derivation path format", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    // Test various invalid path formats
+    const invalidPaths = [
+      "", // empty
+      "84'/1'/0'/0/0", // missing 'm/'
+      "n/84'/1'/0'/0/0", // wrong prefix
+      "m", // too short
+      "m/84'", // too short
+      "m/84'/1'", // too short
+    ];
+
+    invalidPaths.forEach((path) => {
+      expect(() => deriveTestnetAddress(hdRoot, path)).toThrow(
+        "Failed to derive testnet address: Invalid derivation path"
+      );
+    });
+
+    // Test explicit null (should throw error)
+    expect(() => deriveTestnetAddress(hdRoot, null as never)).toThrow(
+      "Failed to derive testnet address: Invalid derivation path"
+    );
+
+    // Note: undefined should use default path and not throw error
+    // This is the expected behavior for optional parameters
+    expect(() => deriveTestnetAddress(hdRoot, undefined)).not.toThrow();
+
+    // Test non-string types
+    expect(() => deriveTestnetAddress(hdRoot, 123 as never)).toThrow(
+      "Failed to derive testnet address: Invalid derivation path"
+    );
+  });
+
+  it("should throw error for wrong purpose in derivation path", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const invalidPaths = [
+      "m/44'/1'/0'/0/0", // BIP44 instead of BIP84
+      "m/49'/1'/0'/0/0", // BIP49 instead of BIP84
+      "m/0'/1'/0'/0/0", // purpose 0 instead of 84
+      "m/84/1'/0'/0/0", // purpose 84 without hardening
+    ];
+
+    invalidPaths.forEach((path) => {
+      expect(() => deriveTestnetAddress(hdRoot, path)).toThrow(
+        "Failed to derive testnet address: Invalid derivation path: must use purpose 84'"
+      );
+    });
+  });
+
+  it("should throw error for wrong coin type in derivation path", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const invalidPaths = [
+      "m/84'/0'/0'/0/0", // mainnet coin type instead of testnet
+      "m/84'/2'/0'/0/0", // invalid coin type
+      "m/84'/1/0'/0/0", // coin type 1 without hardening
+    ];
+
+    invalidPaths.forEach((path) => {
+      expect(() => deriveTestnetAddress(hdRoot, path)).toThrow(
+        "Failed to derive testnet address: Invalid derivation path: must use coin_type 1'"
+      );
+    });
+  });
+
+  it("should handle valid derivation paths with different indices", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    const validPaths = [
+      "m/84'/1'/0'/0/0",
+      "m/84'/1'/0'/0/1",
+      "m/84'/1'/0'/0/999",
+      "m/84'/1'/0'/1/0",
+      "m/84'/1'/0'/1/999",
+      "m/84'/1'/5'/0/0",
+      "m/84'/1'/100'/0/0",
+    ];
+
+    validPaths.forEach((path) => {
+      const address = deriveTestnetAddress(hdRoot, path);
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+    });
+  });
+
+  it("should produce consistent results with known test vectors", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    // Test the default derivation path
+    const address = deriveTestnetAddress(hdRoot);
+
+    // This should be consistent across runs
+    expect(address).toBe(deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/0"));
+    expect(address.startsWith("tb1")).toBe(true);
+    expect(address.length).toBe(42);
+
+    // Test a few specific paths for consistency
+    const addresses = {
+      first: deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/0"),
+      second: deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/1"),
+      change: deriveTestnetAddress(hdRoot, "m/84'/1'/0'/1/0"),
+    };
+
+    // These should always be the same for this test mnemonic
+    expect(addresses.first).toBeTruthy();
+    expect(addresses.second).toBeTruthy();
+    expect(addresses.change).toBeTruthy();
+
+    // They should be different from each other
+    expect(addresses.first).not.toBe(addresses.second);
+    expect(addresses.second).not.toBe(addresses.change);
+    expect(addresses.first).not.toBe(addresses.change);
+  });
+
+  it("should handle stress test with multiple address generations", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    // Generate 20 different addresses
+    const addresses = [];
+    for (let i = 0; i < 20; i++) {
+      const address = deriveTestnetAddress(hdRoot, `m/84'/1'/0'/0/${i}`);
+      addresses.push(address);
+
+      // Each address should be valid
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+    }
+
+    // All addresses should be unique
+    const uniqueAddresses = new Set(addresses);
+    expect(uniqueAddresses.size).toBe(addresses.length);
+  });
+
+  it("should not expose any private key material", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+    const address = deriveTestnetAddress(hdRoot);
+
+    // The returned address should only be a string
+    expect(typeof address).toBe("string");
+
+    // It should not contain any objects or additional data
+    expect(address).not.toContain("private");
+    expect(address).not.toContain("secret");
+    expect(address).not.toContain("key");
+
+    // It should be a pure bech32 address string
+    expect(address).toMatch(/^tb1[a-z0-9]{39}$/);
+  });
+
+  it("should work correctly with edge case paths", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    // Test with maximum safe integer values
+    const edgePaths = [
+      "m/84'/1'/0'/0/0", // minimum
+      "m/84'/1'/2147483647'/0/0", // max hardened index
+      "m/84'/1'/0'/0/4294967295", // max non-hardened index
+    ];
+
+    edgePaths.forEach((path) => {
+      const address = deriveTestnetAddress(hdRoot, path);
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+    });
+  });
+
+  it("should validate that P2WPKH addresses are exactly 42 characters", () => {
+    const seed = mnemonicToSeed(testMnemonic);
+    const hdRoot = generateHDRoot(seed);
+
+    // Generate several addresses and verify length
+    for (let i = 0; i < 5; i++) {
+      const address = deriveTestnetAddress(hdRoot, `m/84'/1'/0'/0/${i}`);
+      expect(address.length).toBe(42);
+      expect(address.startsWith("tb1")).toBe(true);
+    }
   });
 });

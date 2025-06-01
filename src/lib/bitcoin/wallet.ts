@@ -183,3 +183,151 @@ export function generateHDRoot(
     );
   }
 }
+
+/**
+ * Derives a testnet Bitcoin address from an HD root key using a specified derivation path
+ *
+ * @param {BIP32Interface} hdRoot - The HD root key generated from generateHDRoot()
+ * @param {string} [path="m/84'/1'/0'/0/0"] - BIP84 derivation path for testnet native SegWit (defaults to first receiving address)
+ * @returns {string} A testnet Bitcoin address string (starts with 'tb1')
+ *
+ * @example
+ * const mnemonic = generateMnemonic();
+ * const seed = mnemonicToSeed(mnemonic);
+ * const hdRoot = generateHDRoot(seed);
+ * const address = deriveTestnetAddress(hdRoot);
+ * console.log(address); // "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+ *
+ * @example
+ * // Custom derivation path
+ * const address = deriveTestnetAddress(hdRoot, "m/84'/1'/0'/0/1"); // Second receiving address
+ *
+ * @security This function only returns the public address string.
+ * Private keys are never exposed and remain internal to the HD wallet structure.
+ * This function is safe to use for generating addresses that will be shared with clients.
+ */
+export function deriveTestnetAddress(
+  hdRoot: BIP32Interface,
+  path?: string
+): string {
+  try {
+    // Set default path if not provided
+    const derivationPath = path ?? "m/84'/1'/0'/0/0";
+
+    // Validate that hdRoot is provided and has the expected structure
+    if (!hdRoot) {
+      throw new Error("HD root is required");
+    }
+
+    if (typeof hdRoot.derivePath !== "function") {
+      throw new Error("Invalid HD root: missing derivePath method");
+    }
+
+    if (!hdRoot.network) {
+      throw new Error("Invalid HD root: missing network information");
+    }
+
+    // Validate that we're working with testnet
+    if (hdRoot.network !== bitcoin.networks.testnet) {
+      throw new Error(
+        "HD root must be configured for testnet network. Use bitcoin.networks.testnet when calling generateHDRoot()"
+      );
+    }
+
+    // Validate derivation path format (check for null/undefined first)
+    if (
+      path !== undefined &&
+      (path === null || typeof path !== "string" || !path.startsWith("m/"))
+    ) {
+      throw new Error(
+        "Invalid derivation path: must be a string starting with 'm/'"
+      );
+    }
+
+    // Use the derivation path for further validation
+    if (
+      typeof derivationPath !== "string" ||
+      !derivationPath.startsWith("m/")
+    ) {
+      throw new Error(
+        "Invalid derivation path: must be a string starting with 'm/'"
+      );
+    }
+
+    // Validate that path follows BIP84 pattern for testnet (m/84'/1'/...)
+    const pathParts = derivationPath.split("/");
+    if (pathParts.length < 4) {
+      throw new Error(
+        "Invalid derivation path: must have at least 4 levels (m/purpose'/coin_type'/account'/...)"
+      );
+    }
+
+    if (pathParts[1] !== "84'") {
+      throw new Error(
+        "Invalid derivation path: must use purpose 84' for native SegWit (BIP84)"
+      );
+    }
+
+    if (pathParts[2] !== "1'") {
+      throw new Error(
+        "Invalid derivation path: must use coin_type 1' for Bitcoin testnet"
+      );
+    }
+
+    // Derive the child key using the specified path
+    const childKey = hdRoot.derivePath(derivationPath);
+
+    // Verify the derived key has the required properties
+    if (!childKey) {
+      throw new Error("Failed to derive child key from path");
+    }
+
+    if (!childKey.publicKey) {
+      throw new Error("Derived child key is missing public key");
+    }
+
+    if (childKey.publicKey.length !== 33) {
+      throw new Error(
+        `Invalid derived public key length: expected 33 bytes, got ${childKey.publicKey.length}`
+      );
+    }
+
+    // Create P2WPKH (Pay to Witness Public Key Hash) address for native SegWit
+    // This creates a testnet address starting with 'tb1'
+    const { address } = bitcoin.payments.p2wpkh({
+      pubkey: Buffer.from(childKey.publicKey),
+      network: bitcoin.networks.testnet,
+    });
+
+    if (!address) {
+      throw new Error("Failed to generate P2WPKH address from public key");
+    }
+
+    // Validate that the generated address has the correct testnet format
+    if (!address.startsWith("tb1")) {
+      throw new Error(
+        `Generated address has incorrect format: expected to start with 'tb1', got '${address.substring(
+          0,
+          3
+        )}'`
+      );
+    }
+
+    // Additional validation: testnet bech32 addresses should be 42 or 62 characters
+    // 42 for P2WPKH (20-byte hash), 62 for P2WSH (32-byte hash)
+    if (address.length !== 42 && address.length !== 62) {
+      throw new Error(
+        `Generated address has unexpected length: expected 42 or 62 characters, got ${address.length}`
+      );
+    }
+
+    // Return only the public address string - no private key material
+    return address;
+  } catch (error) {
+    throw new Error(
+      `Failed to derive testnet address: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
