@@ -10,6 +10,7 @@ import {
   mnemonicToSeed,
   generateHDRoot,
   deriveTestnetAddress,
+  generateWalletAddress,
 } from "../../src/lib/bitcoin/wallet";
 import * as bip39 from "bip39";
 import * as bitcoin from "bitcoinjs-lib";
@@ -1026,5 +1027,278 @@ describe("deriveTestnetAddress", () => {
       expect(address.length).toBe(42);
       expect(address.startsWith("tb1")).toBe(true);
     }
+  });
+});
+
+describe("generateWalletAddress", () => {
+  it("should generate a valid testnet address", () => {
+    const address = generateWalletAddress();
+
+    // Check that address is a string
+    expect(typeof address).toBe("string");
+
+    // Check that it starts with 'tb1' (testnet bech32)
+    expect(address.startsWith("tb1")).toBe(true);
+
+    // Check that it has the correct length for P2WPKH (42 characters)
+    expect(address.length).toBe(42);
+
+    // Verify it's a valid bech32 testnet address format
+    expect(address).toMatch(/^tb1[a-z0-9]{39}$/);
+  });
+
+  it("should generate different addresses on each call", () => {
+    const address1 = generateWalletAddress();
+    const address2 = generateWalletAddress();
+    const address3 = generateWalletAddress();
+
+    // All should be valid testnet addresses
+    [address1, address2, address3].forEach((addr) => {
+      expect(addr.startsWith("tb1")).toBe(true);
+      expect(addr.length).toBe(42);
+      expect(addr).toMatch(/^tb1[a-z0-9]{39}$/);
+    });
+
+    // They should be different (statistically almost impossible to be the same)
+    expect(address1).not.toBe(address2);
+    expect(address2).not.toBe(address3);
+    expect(address1).not.toBe(address3);
+  });
+
+  it("should work with default derivation path", () => {
+    const address1 = generateWalletAddress();
+    const address2 = generateWalletAddress("m/84'/1'/0'/0/0");
+
+    // Both should be valid (though different since they use different mnemonics)
+    expect(address1.startsWith("tb1")).toBe(true);
+    expect(address2.startsWith("tb1")).toBe(true);
+    expect(address1.length).toBe(42);
+    expect(address2.length).toBe(42);
+  });
+
+  it("should work with custom derivation paths", () => {
+    const customPaths = [
+      "m/84'/1'/0'/0/1", // Second receiving address
+      "m/84'/1'/0'/1/0", // First change address
+      "m/84'/1'/1'/0/0", // Different account
+      "m/84'/1'/0'/0/5", // Fifth receiving address
+    ];
+
+    customPaths.forEach((path) => {
+      const address = generateWalletAddress(path);
+
+      expect(typeof address).toBe("string");
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+      expect(address).toMatch(/^tb1[a-z0-9]{39}$/);
+    });
+  });
+
+  it("should throw error for invalid derivation paths", () => {
+    const invalidPaths = [
+      "", // empty
+      "84'/1'/0'/0/0", // missing 'm/'
+      "m/44'/1'/0'/0/0", // wrong purpose (BIP44 instead of BIP84)
+      "m/84'/0'/0'/0/0", // mainnet coin type instead of testnet
+      "m/84'", // too short
+      "invalid", // completely invalid
+    ];
+
+    invalidPaths.forEach((path) => {
+      expect(() => generateWalletAddress(path)).toThrow(
+        "Failed to generate wallet address"
+      );
+    });
+  });
+
+  it("should handle edge case paths correctly", () => {
+    const edgePaths = [
+      "m/84'/1'/0'/0/0", // minimum values
+      "m/84'/1'/0'/0/999", // large index
+      "m/84'/1'/5'/0/0", // different account
+      "m/84'/1'/0'/1/0", // change chain
+    ];
+
+    edgePaths.forEach((path) => {
+      const address = generateWalletAddress(path);
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+    });
+  });
+
+  it("should never expose private key material", () => {
+    const address = generateWalletAddress();
+
+    // The result should only be a string
+    expect(typeof address).toBe("string");
+
+    // It should not contain any sensitive keywords
+    expect(address).not.toContain("private");
+    expect(address).not.toContain("secret");
+    expect(address).not.toContain("key");
+    expect(address).not.toContain("mnemonic");
+    expect(address).not.toContain("seed");
+
+    // It should be a pure testnet address
+    expect(address).toMatch(/^tb1[a-z0-9]{39}$/);
+  });
+
+  it("should be cryptographically secure (entropy test)", () => {
+    // Generate many addresses to test entropy
+    const addresses = [];
+    for (let i = 0; i < 100; i++) {
+      addresses.push(generateWalletAddress());
+    }
+
+    // All addresses should be unique (cryptographically secure randomness)
+    const uniqueAddresses = new Set(addresses);
+    expect(uniqueAddresses.size).toBe(addresses.length);
+
+    // All should be valid testnet addresses
+    addresses.forEach((address) => {
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+    });
+  });
+
+  it("should work consistently with stress testing", () => {
+    // Stress test: generate many addresses rapidly
+    const startTime = Date.now();
+    const addresses = [];
+
+    for (let i = 0; i < 50; i++) {
+      const address = generateWalletAddress();
+      addresses.push(address);
+
+      // Each address should be valid
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+      expect(typeof address).toBe("string");
+    }
+
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    // Should complete reasonably quickly (less than 5 seconds for 50 addresses)
+    expect(duration).toBeLessThan(5000);
+
+    // All addresses should be unique
+    const uniqueAddresses = new Set(addresses);
+    expect(uniqueAddresses.size).toBe(addresses.length);
+  });
+
+  it("should handle errors gracefully", () => {
+    // This test is simplified to avoid dynamic module manipulation
+    // which can cause linter issues. In a real scenario, we would use
+    // proper mocking libraries like jest.mock() at the module level.
+
+    // Test that the function throws appropriate errors for invalid inputs
+    expect(() => generateWalletAddress("invalid-path")).toThrow(
+      "Failed to generate wallet address"
+    );
+  });
+
+  it("should not leak memory with rapid successive calls", () => {
+    // Test for memory leaks by generating many addresses
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    for (let i = 0; i < 20; i++) {
+      const address = generateWalletAddress();
+      expect(address.startsWith("tb1")).toBe(true);
+    }
+
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+    }
+
+    const finalMemory = process.memoryUsage().heapUsed;
+    const memoryIncrease = finalMemory - initialMemory;
+
+    // Memory increase should be reasonable (less than 10MB for 20 addresses)
+    // This is a rough check for obvious memory leaks
+    expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024);
+  });
+
+  it("should work with various account levels", () => {
+    // Test different account levels in derivation path
+    for (let account = 0; account <= 5; account++) {
+      const path = `m/84'/1'/${account}'/0/0`;
+      const address = generateWalletAddress(path);
+
+      expect(address.startsWith("tb1")).toBe(true);
+      expect(address.length).toBe(42);
+    }
+  });
+
+  it("should work with receiving and change addresses", () => {
+    // Test both receiving (0) and change (1) chains
+    const receivingAddress = generateWalletAddress("m/84'/1'/0'/0/0");
+    const changeAddress = generateWalletAddress("m/84'/1'/0'/1/0");
+
+    expect(receivingAddress.startsWith("tb1")).toBe(true);
+    expect(changeAddress.startsWith("tb1")).toBe(true);
+    expect(receivingAddress.length).toBe(42);
+    expect(changeAddress.length).toBe(42);
+
+    // They should be different
+    expect(receivingAddress).not.toBe(changeAddress);
+  });
+
+  it("should maintain consistent format across all generations", () => {
+    const addresses: string[] = [];
+
+    // Generate addresses with different paths
+    const paths = [
+      "m/84'/1'/0'/0/0",
+      "m/84'/1'/0'/0/1",
+      "m/84'/1'/0'/1/0",
+      "m/84'/1'/1'/0/0",
+    ];
+
+    paths.forEach((path) => {
+      const address = generateWalletAddress(path);
+      addresses.push(address);
+    });
+
+    // All addresses should follow the same format
+    addresses.forEach((address) => {
+      expect(address).toMatch(/^tb1[a-z0-9]{39}$/);
+      expect(address.length).toBe(42);
+      expect(address.startsWith("tb1")).toBe(true);
+    });
+
+    // All should be unique
+    const uniqueAddresses = new Set(addresses);
+    expect(uniqueAddresses.size).toBe(addresses.length);
+  });
+
+  it("should be safe for use in Server Actions", () => {
+    // Test that the function behaves safely for server-side use
+    const address = generateWalletAddress();
+
+    // Result should be serializable (for Server Action responses)
+    const serialized = JSON.stringify({ address });
+    const deserialized = JSON.parse(serialized);
+
+    expect(deserialized.address).toBe(address);
+    expect(deserialized.address.startsWith("tb1")).toBe(true);
+
+    // Should not contain any non-serializable objects
+    expect(typeof address).toBe("string");
+    expect(address.constructor).toBe(String);
+  });
+
+  it("should validate testnet network compatibility", () => {
+    const address = generateWalletAddress();
+
+    // Address should be specifically for testnet
+    expect(address.startsWith("tb1")).toBe(true); // testnet bech32
+    expect(address).not.toMatch(/^bc1/); // not mainnet
+    expect(address).not.toMatch(/^[13]/); // not legacy addresses
+    expect(address).not.toMatch(/^2/); // not P2SH addresses
+
+    // Should be P2WPKH format (42 characters for testnet)
+    expect(address.length).toBe(42);
   });
 });

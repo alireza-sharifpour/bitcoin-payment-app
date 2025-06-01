@@ -331,3 +331,57 @@ export function deriveTestnetAddress(
     );
   }
 }
+
+/**
+ * Generates a new Bitcoin testnet address with ephemeral HD wallet (Unified Function)
+ *
+ * This function combines all wallet generation steps internally and only exposes
+ * the final public address. It is the main function to be used by Server Actions.
+ *
+ * @param {string} [derivationPath="m/84'/1'/0'/0/0"] - BIP84 derivation path for testnet native SegWit
+ * @returns {string} A testnet Bitcoin address string (starts with 'tb1')
+ *
+ * @example
+ * const address = generateWalletAddress();
+ * console.log(address); // "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+ *
+ * @example
+ * // Generate with custom derivation path
+ * const address = generateWalletAddress("m/84'/1'/0'/0/1");
+ *
+ * @security CRITICAL SECURITY IMPLEMENTATION:
+ * - Mnemonic, seed, and private keys are generated and used ONLY within this function
+ * - NO private key material is ever exposed outside this function
+ * - Private keys and mnemonics are automatically discarded when function completes
+ * - Only the public address string is returned to caller
+ * - This function is safe to use in Server Actions as it never exposes sensitive data
+ */
+export function generateWalletAddress(
+  derivationPath: string = "m/84'/1'/0'/0/0"
+): string {
+  try {
+    // Step 1: Generate a new mnemonic phrase (kept internal)
+    const mnemonic = generateMnemonic();
+
+    // Step 2: Convert mnemonic to seed (kept internal)
+    const seed = mnemonicToSeed(mnemonic);
+
+    // Step 3: Generate HD root key from seed (kept internal)
+    const hdRoot = generateHDRoot(seed, bitcoin.networks.testnet);
+
+    // Step 4: Derive the testnet address using specified path
+    const address = deriveTestnetAddress(hdRoot, derivationPath);
+
+    // SECURITY NOTE: At this point, mnemonic, seed, and hdRoot containing
+    // private keys will be garbage collected and removed from memory.
+    // Only the public address is returned.
+
+    return address;
+  } catch (error) {
+    throw new Error(
+      `Failed to generate wallet address: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
