@@ -7,6 +7,12 @@
  */
 
 import * as bip39 from "bip39";
+import { BIP32Factory, BIP32Interface } from "bip32";
+import * as ecc from "tiny-secp256k1";
+import * as bitcoin from "bitcoinjs-lib";
+
+// You must wrap a tiny-secp256k1 compatible implementation
+const bip32 = BIP32Factory(ecc);
 
 /**
  * Generates a new BIP39 mnemonic phrase with 12 words
@@ -103,4 +109,77 @@ export function mnemonicToSeed(
  */
 export function validateMnemonic(mnemonic: string): boolean {
   return bip39.validateMnemonic(mnemonic);
+}
+
+/**
+ * Generates an HD (Hierarchical Deterministic) root key from a seed
+ *
+ * @param {Buffer} seed - The 64-byte seed derived from a mnemonic
+ * @param {bitcoin.Network} [network=bitcoin.networks.testnet] - Bitcoin network (defaults to testnet)
+ * @returns {BIP32Interface} The HD root key object containing master private/public keys and derivation methods
+ *
+ * @example
+ * const mnemonic = generateMnemonic();
+ * const seed = mnemonicToSeed(mnemonic);
+ * const hdRoot = generateHDRoot(seed);
+ * // Use hdRoot to derive specific address keys
+ *
+ * @example
+ * // For testnet
+ * const hdRoot = generateHDRoot(seed, bitcoin.networks.testnet);
+ *
+ * @security This function generates and handles private key material.
+ * The returned BIP32Interface contains private keys and should NEVER be exposed to the client.
+ * Use this only for server-side address derivation.
+ */
+export function generateHDRoot(
+  seed: Buffer,
+  network: bitcoin.Network = bitcoin.networks.testnet
+): BIP32Interface {
+  try {
+    // Validate seed length (should be 64 bytes from BIP39)
+    if (!Buffer.isBuffer(seed)) {
+      throw new Error("Seed must be a Buffer");
+    }
+
+    if (seed.length !== 64) {
+      throw new Error(
+        `Invalid seed length: expected 64 bytes, got ${seed.length}`
+      );
+    }
+
+    // Generate HD root key from seed using BIP32
+    const hdRoot = bip32.fromSeed(seed, network);
+
+    // Verify that the HD root was created successfully
+    if (!hdRoot) {
+      throw new Error("Failed to create HD root from seed");
+    }
+
+    // Verify the HD root has the expected properties
+    if (!hdRoot.privateKey || !hdRoot.publicKey) {
+      throw new Error("Generated HD root is missing required key material");
+    }
+
+    // Verify key lengths are correct
+    if (hdRoot.privateKey.length !== 32) {
+      throw new Error(
+        `Invalid private key length: expected 32 bytes, got ${hdRoot.privateKey.length}`
+      );
+    }
+
+    if (hdRoot.publicKey.length !== 33) {
+      throw new Error(
+        `Invalid public key length: expected 33 bytes, got ${hdRoot.publicKey.length}`
+      );
+    }
+
+    return hdRoot;
+  } catch (error) {
+    throw new Error(
+      `Failed to generate HD root: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
 }
