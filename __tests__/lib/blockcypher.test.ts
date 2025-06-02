@@ -688,12 +688,18 @@ describe("Blockcypher API Client", () => {
       it("should include context in error messages", async () => {
         process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
 
-        mockFetch.mockResolvedValueOnce({
+        // Mock all retry attempts to return 429 status
+        const rate429Response = {
           ok: false,
           status: 429,
           statusText: "Too Many Requests",
           text: async () => JSON.stringify({ error: "Rate limit exceeded" }),
-        });
+        };
+
+        mockFetch
+          .mockResolvedValueOnce(rate429Response)
+          .mockResolvedValueOnce(rate429Response)
+          .mockResolvedValueOnce(rate429Response);
 
         await expect(
           registerAddressWebhook(validTestnetAddress)
