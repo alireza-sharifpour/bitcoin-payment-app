@@ -28,7 +28,12 @@ import {
 } from "@/actions/payment";
 import { paymentRequestSchema } from "@/lib/validation/payment";
 
-type PaymentFormValues = z.infer<typeof paymentRequestSchema>;
+// Create a form-specific schema that doesn't transform values
+const formSchema = z.object({
+  amount: z.string().trim().min(1, "Amount is required"),
+});
+
+type PaymentFormValues = z.infer<typeof formSchema>;
 
 interface PaymentFormProps {
   onPaymentRequestCreated: (data: PaymentRequestData) => void;
@@ -36,17 +41,13 @@ interface PaymentFormProps {
 
 export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
   const form = useForm<PaymentFormValues>({
-    resolver: zodResolver(paymentRequestSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       amount: "",
     },
   });
 
-  const mutation = useMutation<
-    CreatePaymentRequestResult,
-    Error,
-    FormData
-  >({
+  const mutation = useMutation<CreatePaymentRequestResult, Error, FormData>({
     mutationFn: async (formData: FormData) => {
       return createPaymentRequest(formData);
     },
@@ -63,14 +64,29 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
     },
     onError: (error) => {
       toast.error(
-        `An error occurred: ${error.message || "Unknown error. Please try again."}`
+        `An error occurred: ${
+          error.message || "Unknown error. Please try again."
+        }`
       );
     },
   });
 
   function onSubmit(values: PaymentFormValues) {
+    // Validate with the real schema before submission
+    const validationResult = paymentRequestSchema.safeParse({
+      amount: values.amount,
+    });
+
+    if (!validationResult.success) {
+      // Show validation errors
+      validationResult.error.errors.forEach((error) => {
+        form.setError("amount", { message: error.message });
+      });
+      return;
+    }
+
     const formData = new FormData();
-    formData.append("amount", String(values.amount));
+    formData.append("amount", String(validationResult.data.amount));
     mutation.mutate(formData);
   }
 
