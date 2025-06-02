@@ -16,6 +16,7 @@ import {
   type PaymentRequest,
   generateBip21Uri,
 } from "@/lib/validation/payment";
+import { generateWalletAddress } from "@/lib/bitcoin/wallet";
 
 /**
  * Server Action Response Types
@@ -41,7 +42,7 @@ export type CreatePaymentRequestResult = ServerActionResult<PaymentRequestData>;
  *
  * This Server Action handles the complete payment request creation flow:
  * 1. Validates the form input (amount)
- * 2. Generates a new testnet address (Task 3.1.3 - will be implemented)
+ * 2. Generates a new testnet address (Task 3.1.3 - ✅ IMPLEMENTED)
  * 3. Creates BIP21 payment URI (Task 3.1.4 - will be implemented)
  * 4. Registers webhook with Blockcypher (Task 3.2.3 - will be implemented)
  *
@@ -97,17 +98,25 @@ export async function createPaymentRequest(
 
     const { amount } = validationResult.data;
 
-    // TODO: Task 3.1.3 - Implement address generation
-    // const address = await generateWalletAddress();
-    const placeholderAddress = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"; // Placeholder for now
+    // Task 3.1.3 - ✅ IMPLEMENTED: Generate wallet address using secure wallet service
+    let address: string;
+    try {
+      address = generateWalletAddress();
+    } catch (walletError) {
+      console.error("Wallet address generation failed:", walletError);
+      return {
+        success: false,
+        error: `Failed to generate payment address: ${
+          walletError instanceof Error
+            ? walletError.message
+            : "Unknown wallet error"
+        }`,
+      };
+    }
 
     // TODO: Task 3.1.4 - Implement BIP21 URI generation
     // const paymentUri = generateBip21Uri(address, amount);
-    const placeholderUri = generateBip21Uri(
-      placeholderAddress,
-      amount,
-      "testnet"
-    ); // Use existing utility function
+    const placeholderUri = generateBip21Uri(address, amount, "testnet"); // Use existing utility function with real address
 
     // TODO: Task 3.2.3 - Implement webhook registration
     // const webhookId = await registerWebhook(address);
@@ -120,7 +129,7 @@ export async function createPaymentRequest(
     return {
       success: true,
       data: {
-        address: placeholderAddress,
+        address,
         amount,
         paymentUri: placeholderUri,
         requestTimestamp,
