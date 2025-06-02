@@ -17,7 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Bitcoin Testnet Payment App", // Updated title
-  description: "Generate Bitcoin testnet payment requests and track their status.", // Updated description
+  description:
+    "Generate Bitcoin testnet payment requests and track their status.", // Updated description
 };
 
 export default function RootLayout({
