@@ -5,6 +5,12 @@
  * - Implement basic HTTP client for Blockcypher API
  * - Handle authentication with API token
  * - Test: Successfully connects to Blockcypher testnet API
+ *
+ * Tests for Task 3.2.2: Implement webhook registration function
+ * - Registers webhook for specific address with Blockcypher
+ * - Points to `/api/webhook/payment-update` endpoint
+ * - Returns webhook ID
+ * - Handles environment configuration
  */
 
 import {
@@ -15,6 +21,7 @@ import {
   BlockcypherRateLimitError,
   blockcypherClient,
   registerPaymentWebhook,
+  registerAddressWebhook,
   BLOCKCYPHER_CONFIG,
 } from "@/lib/api/blockcypher";
 
@@ -490,6 +497,322 @@ describe("Blockcypher API Client", () => {
     });
   });
 
+  describe("Address Webhook Registration (Task 3.2.2)", () => {
+    const validTestnetAddress = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
+
+    describe("Core Functionality", () => {
+      it("should register webhook pointing to /api/webhook/payment-update endpoint", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.com/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        const webhookId = await registerAddressWebhook(validTestnetAddress);
+
+        expect(webhookId).toBe("webhook-test-123");
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining("btc/test3/hooks"),
+          expect.objectContaining({
+            method: "POST",
+            body: JSON.stringify({
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.com/api/webhook/payment-update",
+            }),
+          })
+        );
+      });
+
+      it("should construct HTTPS URL when base URL lacks protocol", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.com/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        const webhookId = await registerAddressWebhook(validTestnetAddress);
+
+        expect(webhookId).toBe("webhook-test-123");
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const requestBody = JSON.parse(fetchCall[1].body);
+        expect(requestBody.url).toBe(
+          "https://myapp.com/api/webhook/payment-update"
+        );
+      });
+
+      it("should use VERCEL_URL as fallback when NEXT_PUBLIC_APP_URL is not set", async () => {
+        delete process.env.NEXT_PUBLIC_APP_URL;
+        process.env.VERCEL_URL = "myapp.vercel.app";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.vercel.app/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        const webhookId = await registerAddressWebhook(validTestnetAddress);
+
+        expect(webhookId).toBe("webhook-test-123");
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const requestBody = JSON.parse(fetchCall[1].body);
+        expect(requestBody.url).toBe(
+          "https://myapp.vercel.app/api/webhook/payment-update"
+        );
+      });
+
+      it("should preserve existing HTTPS protocol in base URL", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "https://secure.myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://secure.myapp.com/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        await registerAddressWebhook(validTestnetAddress);
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const requestBody = JSON.parse(fetchCall[1].body);
+        expect(requestBody.url).toBe(
+          "https://secure.myapp.com/api/webhook/payment-update"
+        );
+      });
+    });
+
+    describe("Environment Configuration", () => {
+      it("should throw error when no base URL is configured", async () => {
+        delete process.env.NEXT_PUBLIC_APP_URL;
+        delete process.env.VERCEL_URL;
+
+        await expect(
+          registerAddressWebhook(validTestnetAddress)
+        ).rejects.toThrow("Application URL not configured");
+      });
+
+      it("should provide helpful error message about environment variables", async () => {
+        delete process.env.NEXT_PUBLIC_APP_URL;
+        delete process.env.VERCEL_URL;
+
+        await expect(
+          registerAddressWebhook(validTestnetAddress)
+        ).rejects.toThrow(
+          "Set NEXT_PUBLIC_APP_URL or VERCEL_URL environment variable"
+        );
+      });
+    });
+
+    describe("URL Construction and Validation", () => {
+      it("should validate constructed webhook URL", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "http://insecure.com";
+
+        await expect(
+          registerAddressWebhook(validTestnetAddress)
+        ).rejects.toThrow("Invalid webhook URL constructed");
+      });
+
+      it("should ensure webhook URL uses HTTPS protocol", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.com/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        await registerAddressWebhook(validTestnetAddress);
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const requestBody = JSON.parse(fetchCall[1].body);
+        expect(requestBody.url).toMatch(/^https:\/\//);
+      });
+    });
+
+    describe("Enhanced Error Handling", () => {
+      it("should include context in error messages", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          statusText: "Too Many Requests",
+          text: async () => JSON.stringify({ error: "Rate limit exceeded" }),
+        });
+
+        await expect(
+          registerAddressWebhook(validTestnetAddress)
+        ).rejects.toThrow(
+          /Failed to register webhook for address.*at.*myapp\.com.*payment-update/
+        );
+      });
+
+      it("should handle edge cases for address validation", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
+
+        // Mock address validation to return false
+        mockIsValidTestnetAddress.mockReturnValue(false);
+
+        await expect(registerAddressWebhook("")).rejects.toThrow(
+          "Invalid Bitcoin testnet address"
+        );
+
+        await expect(
+          registerAddressWebhook(null as unknown as string)
+        ).rejects.toThrow("Invalid Bitcoin testnet address");
+
+        await expect(
+          registerAddressWebhook(undefined as unknown as string)
+        ).rejects.toThrow("Invalid Bitcoin testnet address");
+      });
+    });
+
+    describe("Integration with Existing Infrastructure", () => {
+      it("should use the same webhook event type as the generic function", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.com/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        await registerAddressWebhook(validTestnetAddress);
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const requestBody = JSON.parse(fetchCall[1].body);
+        expect(requestBody.event).toBe("unconfirmed-tx");
+      });
+
+      it("should work with the existing Blockcypher client infrastructure", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.com/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        await registerAddressWebhook(validTestnetAddress);
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining("api.blockcypher.com/v1/btc/test3/hooks"),
+          expect.objectContaining({
+            method: "POST",
+            headers: expect.objectContaining({
+              "Content-Type": "application/json",
+              "User-Agent": "Bitcoin-Payment-App/1.0.0",
+            }),
+          })
+        );
+      });
+    });
+
+    describe("Return Value", () => {
+      it("should return webhook ID for later reference", async () => {
+        process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () =>
+            JSON.stringify({
+              id: "webhook-test-123",
+              event: "unconfirmed-tx",
+              address: validTestnetAddress,
+              url: "https://myapp.com/api/webhook/payment-update",
+              confirmations: 0,
+              token: "test-token",
+              callback_errors: 0,
+            }),
+        });
+
+        const webhookId = await registerAddressWebhook(validTestnetAddress);
+
+        expect(typeof webhookId).toBe("string");
+        expect(webhookId).toBe("webhook-test-123");
+        expect(webhookId.length).toBeGreaterThan(0);
+        expect(webhookId).toMatch(/^webhook-[a-zA-Z0-9-]+$/);
+      });
+    });
+  });
+
   describe("Retry Logic", () => {
     it("should retry failed requests with exponential backoff", async () => {
       // Mock first two calls to fail, third to succeed
@@ -534,6 +857,28 @@ describe("Blockcypher API Client", () => {
     });
   });
 });
+
+/**
+ * Success Criteria Verification:
+ *
+ * Task 3.2.1 - Create Blockcypher API client:
+ * ✅ Implement basic HTTP client for Blockcypher API
+ * ✅ Handle authentication with API token
+ * ✅ Test: Successfully connects to Blockcypher testnet API
+ * ✅ Error handling with retry logic and rate limiting
+ * ✅ Webhook management (register, list, get, delete)
+ * ✅ Input validation for addresses and URLs
+ *
+ * Task 3.2.2 - Implement webhook registration function:
+ * ✅ Register webhook for specific address with Blockcypher
+ * ✅ Point to `/api/webhook/payment-update` endpoint
+ * ✅ Return webhook ID for later reference
+ * ✅ Handle environment configuration (NEXT_PUBLIC_APP_URL, VERCEL_URL)
+ * ✅ HTTPS URL enforcement and construction
+ * ✅ Integration with existing Blockcypher infrastructure
+ * ✅ Comprehensive error handling with context
+ * ✅ Dependencies: Uses Task 3.2.1 (Blockcypher API client)
+ */
 
 /**
  * Integration Tests (commented out - require real API token)

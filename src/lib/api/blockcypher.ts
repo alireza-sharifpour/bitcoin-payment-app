@@ -448,3 +448,72 @@ export async function registerPaymentWebhook(
 
   return webhook.id;
 }
+
+/**
+ * Task 3.2.2: Implement webhook registration function for payment updates
+ *
+ * Registers a webhook for a specific Bitcoin testnet address that automatically
+ * points to the application's payment update endpoint. This is a convenience
+ * function that constructs the webhook URL from environment variables.
+ *
+ * @param address - Bitcoin testnet address to monitor for transactions
+ * @returns Promise<string> - Webhook ID for later reference
+ * @throws {Error} - When app URL is not configured or webhook registration fails
+ *
+ * @example
+ * ```typescript
+ * import { registerAddressWebhook } from "@/lib/api/blockcypher";
+ *
+ * // Register webhook for payment monitoring
+ * const webhookId = await registerAddressWebhook("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4");
+ * console.log("Webhook registered with ID:", webhookId);
+ * ```
+ */
+export async function registerAddressWebhook(address: string): Promise<string> {
+  // Validate the address first
+  if (!address || !isValidTestnetAddress(address)) {
+    throw new Error(
+      "Invalid Bitcoin testnet address. Address must be a valid testnet address"
+    );
+  }
+
+  // Get the application base URL from environment variables
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+
+  if (!baseUrl) {
+    throw new Error(
+      "Application URL not configured. Set NEXT_PUBLIC_APP_URL or VERCEL_URL environment variable."
+    );
+  }
+
+  // Construct the webhook endpoint URL
+  // Ensure HTTPS protocol (required by Blockcypher)
+  const webhookUrl = `${
+    baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`
+  }/api/webhook/payment-update`;
+
+  // Validate the constructed URL
+  if (!validateWebhookUrl(webhookUrl)) {
+    throw new Error(
+      `Invalid webhook URL constructed: ${webhookUrl}. Must be a valid HTTPS URL.`
+    );
+  }
+
+  // Register the webhook with Blockcypher
+  try {
+    const webhook = await blockcypherClient.registerWebhook({
+      event: WebhookEventType.UNCONFIRMED_TX,
+      address,
+      url: webhookUrl,
+    });
+
+    return webhook.id;
+  } catch (error) {
+    // Re-throw with more context for debugging
+    throw new Error(
+      `Failed to register webhook for address ${address} at ${webhookUrl}: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
