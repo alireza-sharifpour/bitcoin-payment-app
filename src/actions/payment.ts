@@ -13,7 +13,6 @@
 
 import {
   paymentRequestSchema,
-  type PaymentRequest,
   generateBip21Uri,
 } from "@/lib/validation/payment";
 import { generateWalletAddress } from "@/lib/bitcoin/wallet";
@@ -143,48 +142,6 @@ export async function createPaymentRequest(
     return {
       success: false,
       error: `Failed to create payment request: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`,
-    };
-  }
-}
-
-/**
- * Validates a payment request without creating one
- *
- * This utility function can be used to validate payment data
- * before submission or for testing purposes.
- *
- * @param data - Payment request data to validate
- * @returns Validation result
- */
-export async function validatePaymentRequest(
-  data: unknown
-): Promise<ServerActionResult<PaymentRequest>> {
-  try {
-    const validationResult = paymentRequestSchema.safeParse(data);
-
-    if (!validationResult.success) {
-      const errors = validationResult.error.errors
-        .map((err) => `${err.path.join(".")}: ${err.message}`)
-        .join(", ");
-
-      return {
-        success: false,
-        error: `Validation failed: ${errors}`,
-      };
-    }
-
-    return {
-      success: true,
-      data: validationResult.data,
-    };
-  } catch (error) {
-    console.error("Error in validatePaymentRequest:", error);
-
-    return {
-      success: false,
-      error: `Validation error: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
     };

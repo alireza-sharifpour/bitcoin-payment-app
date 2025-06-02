@@ -9,12 +9,9 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import {
   createPaymentRequest,
-  validatePaymentRequest,
   type CreatePaymentRequestResult,
-  type ServerActionResult,
   type PaymentRequestData,
 } from "../../src/actions/payment";
-import type { PaymentRequest } from "../../src/lib/validation/payment";
 
 // Mock console.error to avoid noise in test output
 const originalConsoleError = console.error;
@@ -366,9 +363,9 @@ describe("Payment Server Actions", () => {
         expect(validResult.success).toBe(true);
         expect(validResult.data?.address).toMatch(/^tb1[a-z0-9]{39}$/);
 
-        // Test with amount that fails validation
+        // Test with amount that fails validation (tested in validation layer - basic integration test only)
         const invalidFormData = new FormData();
-        invalidFormData.append("amount", "0.00000001"); // Below dust limit
+        invalidFormData.append("amount", "invalid");
 
         const invalidResult = await createPaymentRequest(invalidFormData);
         expect(invalidResult.success).toBe(false);
@@ -449,68 +446,6 @@ describe("Payment Server Actions", () => {
     });
   });
 
-  describe("validatePaymentRequest", () => {
-    it("should be importable as a helper function", () => {
-      expect(typeof validatePaymentRequest).toBe("function");
-      expect(validatePaymentRequest).toBeDefined();
-    });
-
-    it("should validate correct payment request data", async () => {
-      const data = {
-        amount: "0.001",
-      };
-
-      const result = await validatePaymentRequest(data);
-
-      expect(result.success).toBe(true);
-      expect(result.error).toBeUndefined();
-      expect(result.data).toBeDefined();
-      expect(result.data?.amount).toBe(0.001);
-    });
-
-    it("should reject invalid payment request data", async () => {
-      const invalidData = {
-        amount: "invalid-amount",
-      };
-
-      const result = await validatePaymentRequest(invalidData);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Validation failed");
-      expect(result.data).toBeUndefined();
-    });
-
-    it("should handle missing data gracefully", async () => {
-      const result = await validatePaymentRequest({});
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Validation failed");
-      expect(result.error).toContain("amount");
-    });
-
-    it("should handle null and undefined inputs", async () => {
-      const nullResult = await validatePaymentRequest(null);
-      const undefinedResult = await validatePaymentRequest(undefined);
-
-      expect(nullResult.success).toBe(false);
-      expect(undefinedResult.success).toBe(false);
-      expect(nullResult.error).toContain("Validation failed");
-      expect(undefinedResult.error).toContain("Validation failed");
-    });
-
-    it("should provide detailed error paths for validation failures", async () => {
-      const invalidData = {
-        amount: -1, // Invalid amount - will be rejected as number when expecting string
-      };
-
-      const result = await validatePaymentRequest(invalidData);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("amount:");
-      expect(result.error).toContain("Expected string");
-    });
-  });
-
   describe("TypeScript Integration", () => {
     it("should have correct TypeScript types for successful responses", async () => {
       const formData = new FormData();
@@ -530,49 +465,6 @@ describe("Payment Server Actions", () => {
         expect(typeof data.paymentUri).toBe("string");
         expect(data.requestTimestamp).toBeInstanceOf(Date);
       }
-    });
-
-    it("should properly type validation results", async () => {
-      const result: ServerActionResult<PaymentRequest> =
-        await validatePaymentRequest({
-          amount: "0.001",
-        });
-
-      expect(result).toBeDefined();
-
-      if (result.success) {
-        const data: PaymentRequest = result.data!;
-        expect(typeof data.amount).toBe("number");
-      }
-    });
-  });
-
-  describe("Integration with Validation Layer", () => {
-    it("should properly integrate with validation schema", async () => {
-      // Test that Server Action uses the validation schema correctly
-      const formData = new FormData();
-      formData.append("amount", "0.00000001"); // Below dust limit
-
-      const result = await createPaymentRequest(formData);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Validation failed");
-      expect(result.error).toContain("dust limit");
-    });
-
-    it("should handle concurrent validation calls efficiently", async () => {
-      const promises = [];
-
-      for (let i = 0; i < 5; i++) {
-        promises.push(validatePaymentRequest({ amount: `0.00${i + 1}` }));
-      }
-
-      const results = await Promise.all(promises);
-
-      results.forEach((result, index) => {
-        expect(result.success).toBe(true);
-        expect(result.data?.amount).toBe(parseFloat(`0.00${index + 1}`));
-      });
     });
   });
 });
