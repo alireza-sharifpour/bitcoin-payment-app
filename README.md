@@ -34,3 +34,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Environment Variables
+
+To run this project, you will need to set up the following environment variables. You can create a `.env.local` file in the root of your project to store these variables locally.
+
+-   `BLOCKCYPHER_API_TOKEN` (Required for webhook functionality): Your API token from [Blockcypher](https://accounts.blockcypher.com/). This is used to authenticate with the Blockcypher API for registering webhooks.
+-   `NEXT_PUBLIC_APP_URL` (Required for webhook functionality): The publicly accessible base URL of your deployed application. For example, `https://yourapp.example.com`. This is used to construct the absolute callback URL that Blockcypher will use to send webhook notifications (e.g., `https://yourapp.example.com/api/webhook/payment-update`). For local development, you might use a service like ngrok to expose your local server and get a public URL.
+
+### Example `.env.local`
+
+```
+BLOCKCYPHER_API_TOKEN=your_blockcypher_api_token_here
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+**Note on `NEXT_PUBLIC_APP_URL` for Webhooks:** For Blockcypher webhooks to function correctly, the `NEXT_PUBLIC_APP_URL` must point to an address that is reachable from the public internet. If you are developing locally, `http://localhost:3000` will not be accessible by Blockcypher. You'll need to use a tunneling service (like [ngrok](https://ngrok.com/)) to expose your local development server to the internet and use the provided public URL as `NEXT_PUBLIC_APP_URL`. For production deployments, this should be set to your application's canonical base URL.

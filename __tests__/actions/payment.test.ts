@@ -12,15 +12,30 @@ import {
   type CreatePaymentRequestResult,
   type PaymentRequestData,
 } from "../../src/actions/payment";
+import { registerWebhook } from "@/lib/blockcypher/client";
+
+// Mock the blockcypher client
+jest.mock("@/lib/blockcypher/client", () => ({
+  ...jest.requireActual("@/lib/blockcypher/client"), // Import and retain default exports
+  registerWebhook: jest.fn(),
+}));
+
+const mockedRegisterWebhook = registerWebhook as jest.MockedFunction<typeof registerWebhook>;
 
 // Mock console.error to avoid noise in test output
 const originalConsoleError = console.error;
+// Store original process.env
+const originalEnv = process.env;
 beforeEach(() => {
   console.error = jest.fn();
+  jest.resetModules(); // Clears the cache for process.env
+  process.env = { ...originalEnv }; // Restore original env variables
+  mockedRegisterWebhook.mockClear(); // Clear mock history
 });
 
 afterEach(() => {
   console.error = originalConsoleError;
+  process.env = originalEnv; // Restore original env variables at the end of all tests in a describe block
 });
 
 describe("Payment Server Actions", () => {
@@ -193,9 +208,6 @@ describe("Payment Server Actions", () => {
           expect(result.data.paymentUri).toContain(result.data.address);
           expect(result.data.paymentUri).toContain("amount=0.001");
           expect(result.data.paymentUri).toContain("network=testnet");
-
-          // Check webhook ID is still undefined (Task 3.2.3 not implemented yet)
-          expect(result.data.webhookId).toBeUndefined();
         }
       });
 
@@ -442,6 +454,85 @@ describe("Payment Server Actions", () => {
 
         // Memory increase should be reasonable (less than 15MB for 50 calls)
         expect(memoryIncrease).toBeLessThan(15 * 1024 * 1024);
+      });
+    });
+
+    describe("Webhook Registration (Task 3.2.3 Integration)", () => {
+      it("should call registerWebhook and include webhookId on successful registration", async () => {
+        const formData = new FormData();
+        formData.append("amount", "0.001");
+        const mockWebhookId = "wh-test-123";
+
+        process.env.BLOCKCYPHER_API_TOKEN = "test-token";
+        process.env.NEXT_PUBLIC_APP_URL = "https://example.com";
+        mockedRegisterWebhook.mockResolvedValueOnce(mockWebhookId);
+
+        const result = await createPaymentRequest(formData);
+
+        expect(result.success).toBe(true);
+        expect(result.data?.webhookId).toBe(mockWebhookId);
+        expect(mockedRegisterWebhook).toHaveBeenCalledTimes(1);
+        expect(mockedRegisterWebhook).toHaveBeenCalledWith(
+          expect.any(String), // The generated address
+          "https://example.com/api/webhook/payment-update",
+          "test-token"
+        );
+      });
+
+      it("should proceed gracefully and return undefined webhookId if registerWebhook throws an error", async () => {
+        const formData = new FormData();
+        formData.append("amount", "0.001");
+
+        process.env.BLOCKCYPHER_API_TOKEN = "test-token";
+        process.env.NEXT_PUBLIC_APP_URL = "https://example.com";
+        mockedRegisterWebhook.mockRejectedValueOnce(new Error("Blockcypher API Error"));
+
+        const result = await createPaymentRequest(formData);
+
+        expect(result.success).toBe(true); // Action itself should still succeed
+        expect(result.data?.webhookId).toBeUndefined();
+        expect(mockedRegisterWebhook).toHaveBeenCalledTimes(1);
+        expect(console.error).toHaveBeenCalledWith("Webhook registration failed:", expect.any(Error));
+      });
+
+      it("should skip webhook registration if BLOCKCYPHER_API_TOKEN is not set", async () => {
+        const formData = new FormData();
+        formData.append("amount", "0.001");
+
+        delete process.env.BLOCKCYPHER_API_TOKEN; // Ensure token is not set
+        process.env.NEXT_PUBLIC_APP_URL = "https://example.com";
+
+        const originalConsoleWarn = console.warn;
+        console.warn = jest.fn(); // Mock console.warn
+
+        const result = await createPaymentRequest(formData);
+
+        expect(result.success).toBe(true);
+        expect(result.data?.webhookId).toBeUndefined();
+        expect(mockedRegisterWebhook).not.toHaveBeenCalled();
+        expect(console.warn).toHaveBeenCalledWith("BLOCKCYPHER_API_TOKEN is not set. Skipping webhook registration.");
+
+        console.warn = originalConsoleWarn; // Restore console.warn
+      });
+
+      it("should skip webhook registration if NEXT_PUBLIC_APP_URL is not set", async () => {
+        const formData = new FormData();
+        formData.append("amount", "0.001");
+
+        process.env.BLOCKCYPHER_API_TOKEN = "test-token";
+        delete process.env.NEXT_PUBLIC_APP_URL; // Ensure app URL is not set
+
+        const originalConsoleWarn = console.warn;
+        console.warn = jest.fn(); // Mock console.warn
+
+        const result = await createPaymentRequest(formData);
+
+        expect(result.success).toBe(true);
+        expect(result.data?.webhookId).toBeUndefined();
+        expect(mockedRegisterWebhook).not.toHaveBeenCalled();
+        expect(console.warn).toHaveBeenCalledWith("NEXT_PUBLIC_APP_URL is not set. Skipping webhook registration as absolute callback URL cannot be constructed.");
+
+        console.warn = originalConsoleWarn; // Restore console.warn
       });
     });
   });

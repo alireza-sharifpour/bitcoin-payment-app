@@ -16,6 +16,7 @@ import {
   generateBip21Uri,
 } from "@/lib/validation/payment";
 import { generateWalletAddress } from "@/lib/bitcoin/wallet";
+import { registerWebhook } from "@/lib/blockcypher/client";
 
 /**
  * Server Action Response Types
@@ -117,9 +118,34 @@ export async function createPaymentRequest(
     // Using generateBip21Uri function which implements the required generatePaymentURI(address, amount) functionality
     const paymentUri = generateBip21Uri(address, amount, "testnet");
 
-    // TODO: Task 3.2.3 - Implement webhook registration
-    // const webhookId = await registerWebhook(address);
-    const placeholderWebhookId = undefined; // Will be implemented later
+    // Task 3.2.3 - Implement webhook registration
+    let webhookId: string | undefined = undefined; // Initialize webhookId
+    try {
+      const apiToken = process.env.BLOCKCYPHER_API_TOKEN;
+      if (!apiToken) {
+        console.warn("BLOCKCYPHER_API_TOKEN is not set. Skipping webhook registration.");
+        // Optionally, you could return an error or a specific status if the token is essential
+        // For now, we'll proceed without webhook registration if token is missing
+      } else {
+        // Construct the absolute callback URL
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+        if (!appUrl) {
+          console.warn("NEXT_PUBLIC_APP_URL is not set. Skipping webhook registration as absolute callback URL cannot be constructed.");
+        } else {
+          const callbackUrl = `${appUrl}/api/webhook/payment-update`;
+          // Register webhook with Blockcypher
+          // Using default eventType "unconfirmed-tx"
+          webhookId = await registerWebhook(address, callbackUrl, apiToken);
+          console.log(`Webhook registered for address ${address} with ID: ${webhookId}`);
+        }
+      }
+    } catch (webhookError) {
+      console.error("Webhook registration failed:", webhookError);
+      // Graceful fallback: log the error and continue without webhookId
+      // The payment request itself can still be successful.
+      // Depending on requirements, you might want to set a specific error status for the client.
+      // For now, webhookId will remain undefined.
+    }
 
     // Create request timestamp
     const requestTimestamp = new Date();
@@ -132,7 +158,7 @@ export async function createPaymentRequest(
         amount,
         paymentUri,
         requestTimestamp,
-        webhookId: placeholderWebhookId,
+        webhookId: webhookId,
       },
     };
   } catch (error) {
