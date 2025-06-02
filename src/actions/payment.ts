@@ -16,6 +16,7 @@ import {
   generateBip21Uri,
 } from "@/lib/validation/payment";
 import { generateWalletAddress } from "@/lib/bitcoin/wallet";
+import { registerPaymentWebhook } from "@/lib/api/blockcypher";
 
 /**
  * Server Action Response Types
@@ -43,7 +44,7 @@ export type CreatePaymentRequestResult = ServerActionResult<PaymentRequestData>;
  * 1. Validates the form input (amount)
  * 2. Generates a new testnet address (Task 3.1.3 - ✅ IMPLEMENTED)
  * 3. Creates BIP21 payment URI (Task 3.1.4 - ✅ IMPLEMENTED)
- * 4. Registers webhook with Blockcypher (Task 3.2.3 - will be implemented)
+ * 4. Registers webhook with Blockcypher (Task 3.2.3 - ✅ IMPLEMENTED)
  *
  * @param formData - Form data from the payment request form
  * @returns Promise<CreatePaymentRequestResult> - Structured response with payment details or error
@@ -117,9 +118,41 @@ export async function createPaymentRequest(
     // Using generateBip21Uri function which implements the required generatePaymentURI(address, amount) functionality
     const paymentUri = generateBip21Uri(address, amount, "testnet");
 
-    // TODO: Task 3.2.3 - Implement webhook registration
-    // const webhookId = await registerWebhook(address);
-    const placeholderWebhookId = undefined; // Will be implemented later
+    // Task 3.2.3 - ✅ IMPLEMENTED: Register webhook with Blockcypher
+    let webhookId: string | undefined;
+    try {
+      // Get the webhook URL from environment or construct it
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+      if (!baseUrl) {
+        console.warn(
+          "No NEXT_PUBLIC_APP_URL or VERCEL_URL found - webhook registration will be skipped"
+        );
+        webhookId = undefined;
+      } else {
+        // Ensure HTTPS for webhook URL (required by Blockcypher)
+        const webhookUrl = `${
+          baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`
+        }/api/webhook/payment-update`;
+
+        console.log(
+          `Registering webhook for address ${address} at ${webhookUrl}`
+        );
+
+        webhookId = await registerPaymentWebhook(address, webhookUrl);
+        console.log(`Webhook registered successfully with ID: ${webhookId}`);
+      }
+    } catch (webhookError) {
+      // Log webhook registration failure but don't fail the entire request
+      console.warn(
+        "Webhook registration failed (continuing without webhook):",
+        webhookError
+      );
+      webhookId = undefined;
+
+      // Note: This is graceful degradation - the payment request still works
+      // but users will need to check payment status manually rather than
+      // receiving automatic webhook notifications
+    }
 
     // Create request timestamp
     const requestTimestamp = new Date();
@@ -132,7 +165,7 @@ export async function createPaymentRequest(
         amount,
         paymentUri,
         requestTimestamp,
-        webhookId: placeholderWebhookId,
+        webhookId,
       },
     };
   } catch (error) {
