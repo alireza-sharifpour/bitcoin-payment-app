@@ -42,7 +42,7 @@ export type CreatePaymentRequestResult = ServerActionResult<PaymentRequestData>;
  * This Server Action handles the complete payment request creation flow:
  * 1. Validates the form input (amount)
  * 2. Generates a new testnet address (Task 3.1.3 - ✅ IMPLEMENTED)
- * 3. Creates BIP21 payment URI (Task 3.1.4 - will be implemented)
+ * 3. Creates BIP21 payment URI (Task 3.1.4 - ✅ IMPLEMENTED)
  * 4. Registers webhook with Blockcypher (Task 3.2.3 - will be implemented)
  *
  * @param formData - Form data from the payment request form
@@ -113,9 +113,9 @@ export async function createPaymentRequest(
       };
     }
 
-    // TODO: Task 3.1.4 - Implement BIP21 URI generation
-    // const paymentUri = generateBip21Uri(address, amount);
-    const placeholderUri = generateBip21Uri(address, amount, "testnet"); // Use existing utility function with real address
+    // Task 3.1.4 - ✅ IMPLEMENTED: Generate BIP21 payment URI
+    // Using generateBip21Uri function which implements the required generatePaymentURI(address, amount) functionality
+    const paymentUri = generateBip21Uri(address, amount, "testnet");
 
     // TODO: Task 3.2.3 - Implement webhook registration
     // const webhookId = await registerWebhook(address);
@@ -130,7 +130,7 @@ export async function createPaymentRequest(
       data: {
         address,
         amount,
-        paymentUri: placeholderUri,
+        paymentUri,
         requestTimestamp,
         webhookId: placeholderWebhookId,
       },
