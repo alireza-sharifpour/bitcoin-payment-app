@@ -8,7 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button"; // Will use themed styles
 import {
   Form,
   FormControl,
@@ -17,9 +17,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "@/components/ui/form"; // Will use themed styles
+import { Input } from "@/components/ui/input"; // Will use themed styles
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Will use themed styles
 
 import {
   createPaymentRequest,
@@ -28,50 +28,33 @@ import {
 } from "@/actions/payment";
 import { paymentRequestSchema } from "@/lib/validation/payment";
 
-// Define the form schema based on the Zod schema
-// We only need the 'amount' field for the form input
 type PaymentFormValues = z.infer<typeof paymentRequestSchema>;
 
 interface PaymentFormProps {
-  // Callback to pass the successful payment request data to the parent component
   onPaymentRequestCreated: (data: PaymentRequestData) => void;
 }
 
-/**
- * PaymentForm component
- *
- * This component renders a form for users to enter a BTC amount to request payment.
- * It handles form validation using Zod and React Hook Form, and calls a Server Action
- * to create the payment request using TanStack Query's useMutation.
- *
- * @param {PaymentFormProps} props - Component props
- * @param {function} props.onPaymentRequestCreated - Callback function triggered upon successful payment request.
- * @returns {JSX.Element} The payment form component.
- */
 export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
-  // Initialize React Hook Form
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentRequestSchema),
     defaultValues: {
-      amount: "", // Zod schema expects a string, will transform to number
+      amount: "",
     },
   });
 
-  // Initialize TanStack Query's useMutation for the server action
   const mutation = useMutation<
-    CreatePaymentRequestResult, // Type of the data returned by the mutationFn
-    Error, // Type of the error
-    FormData // Type of the variables passed to mutationFn
+    CreatePaymentRequestResult,
+    Error,
+    FormData
   >({
     mutationFn: async (formData: FormData) => {
-      // The actual server action call
       return createPaymentRequest(formData);
     },
     onSuccess: (result) => {
       if (result.success && result.data) {
         toast.success("Payment request created successfully!");
-        onPaymentRequestCreated(result.data); // Pass data to parent
-        form.reset(); // Reset form after successful submission
+        onPaymentRequestCreated(result.data);
+        form.reset();
       } else {
         toast.error(
           result.error || "Failed to create payment request. Please try again."
@@ -85,19 +68,17 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
     },
   });
 
-  // Handle form submission
   function onSubmit(values: PaymentFormValues) {
-    // Create FormData to pass to the server action
     const formData = new FormData();
-    formData.append("amount", String(values.amount)); // Server action expects string amount
-
-    // Trigger the mutation
+    formData.append("amount", String(values.amount));
     mutation.mutate(formData);
   }
 
   return (
+    // Card component will use --card and --card-foreground
     <Card className="w-full max-w-md">
       <CardHeader>
+        {/* CardTitle will use --card-foreground */}
         <CardTitle>Create Bitcoin Payment Request</CardTitle>
       </CardHeader>
       <CardContent>
@@ -108,27 +89,32 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
               name="amount"
               render={({ field }) => (
                 <FormItem>
+                  {/* FormLabel will use --foreground or similar */}
                   <FormLabel>Amount (BTC)</FormLabel>
                   <FormControl>
+                    {/* Input will use --input for border, --background for bg, --foreground for text */}
                     <Input
                       placeholder="Enter BTC amount (e.g., 0.001)"
                       {...field}
-                      type="number" // Use number type for better UX, but Zod schema handles string validation
-                      step="any" // Allow any decimal for number input type
-                      disabled={mutation.isPending} // Disable input while submitting
+                      type="number"
+                      step="any"
+                      disabled={mutation.isPending}
                     />
                   </FormControl>
+                  {/* FormDescription will use --muted-foreground */}
                   <FormDescription>
                     Enter the amount of Bitcoin (testnet) you want to request.
                   </FormDescription>
+                  {/* FormMessage will use --destructive for error text */}
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {/* Default Button uses --primary and --primary-foreground */}
             <Button
               type="submit"
               className="w-full"
-              disabled={mutation.isPending} // Disable button while submitting
+              disabled={mutation.isPending}
             >
               {mutation.isPending
                 ? "Creating Request..."

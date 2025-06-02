@@ -2,13 +2,12 @@
 "use client"; // This page now uses client-side state and components
 
 import React, { useState } from "react";
-import Image from "next/image"; // Keep Image if needed for branding, or remove
+// import Image from "next/image"; // Uncomment if you add a logo
+import { Button } from "@/components/ui/button"; // Button will be themed by globals.css
 
-// Import the components we created
 import { PaymentForm } from "@/components/payment/PaymentForm";
 import { QrCodeDisplay } from "@/components/payment/QrCodeDisplay";
 import type { PaymentRequestData } from "@/actions/payment"; // Type for state
-import { Button } from "@/components/ui/button"; // Import Button
 
 /**
  * Home page for the Bitcoin Testnet Payment Application.
@@ -28,21 +27,24 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
+    // Use bg-background for the main page container, ensuring it fills the viewport
+    // The body tag already has bg-background and text-foreground via globals.css
+    // This div ensures content is centered and uses padding.
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8">
       <header className="mb-8 text-center">
-        {/* Optional: Add a logo or branding here */}
+        {/* Optional: Add a logo here */}
         {/* <Image
-          className="dark:invert mx-auto mb-4"
-          src="/next.svg" // Replace with your app's logo
+          className="dark:invert mx-auto mb-4" // dark:invert might need review with new theme
+          src="/your-logo.svg" // Replace with your app's logo
           alt="App Logo"
           width={120}
           height={25}
           priority
         /> */}
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-white">
+        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
           Bitcoin Testnet Payment
         </h1>
-        <p className="text-gray-600 dark:text-gray-300 mt-2">
+        <p className="text-muted-foreground mt-2">
           Generate a testnet Bitcoin QR code payment request.
         </p>
       </header>
@@ -56,7 +58,7 @@ export default function Home() {
           <>
             <QrCodeDisplay paymentRequest={paymentRequest} />
             <Button
-              variant="outline"
+              variant="outline" // Outline buttons will use themed border and text colors
               onClick={() => setPaymentRequest(null)} // Allow creating a new request
               className="w-full mt-6"
             >
@@ -66,15 +68,16 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
+      <footer className="mt-12 text-center text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Your Company Name. All rights reserved.</p>
         <p className="mt-1">
           This application uses the Bitcoin test network. Do not use real Bitcoin.
         </p>
-        {/* Optional: Links to GitHub, documentation, etc. */}
-        {/* <p className="mt-2">
-          <a href="#" className="hover:underline">GitHub</a> | <a href="#" className="hover:underline">Docs</a>
-        </p> */}
+        {/* Example of themed links if needed:
+        <p className="mt-2">
+          <a href="#" className="text-primary hover:underline">GitHub</a> | <a href="#" className="text-primary hover:underline">Docs</a>
+        </p>
+        */}
       </footer>
     </div>
   );
