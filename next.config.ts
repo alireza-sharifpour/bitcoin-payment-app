@@ -1,7 +1,8 @@
 // next.config.ts
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  webpack(config, { isServer, dev }) { // Added 'dev' to the destructured options, as it's often available though not always used here
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  webpack(config: NextConfig, { isServer }: { isServer: boolean }) {
     // Enable WebAssembly experiments
     config.experiments = {
       ...config.experiments,
