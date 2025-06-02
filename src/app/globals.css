@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    /* Bitcoin Theme Palette */
+    /* RESTORED Bitcoin Theme Palette */
     --background: hsl(0, 0%, 100%); /* bg-main-custom: #FFFFFF */
     --foreground: hsl(0, 0%, 10%); /* text-main: #1A1A1A */
 
@@ -35,10 +35,16 @@
     --ring: hsl(33, 93%, 53%); /* Ring color for focus, using primary */
 
     --radius: 0.5rem;
+
+    /* Default shadcn/ui light theme values are now removed/commented
+    // --background: hsl(0 0% 100%);
+    // --foreground: hsl(222.2 84% 4.9%);
+    // ... other default values ...
+    */
   }
 
   .dark {
-    /* Define dark theme colors. */
+    /* RESTORED Bitcoin Dark Theme Palette */
     --background: hsl(0, 0%, 10%); /* Dark background: #1A1A1A */
     --foreground: hsl(0, 0%, 98%); /* Light text on dark background */
 
@@ -66,16 +72,19 @@
     --border: hsl(0, 0%, 20%); /* Darker border */
     --input: hsl(0, 0%, 20%); /* Darker input border */
     --ring: hsl(33, 93%, 53%); /* Ring color remains primary */
-  }
-}
 
-@layer base {
+    /* Default shadcn/ui dark theme values are now removed/commented
+    // --background: hsl(222.2 84% 4.9%);
+    // --foreground: hsl(210 40% 98%);
+    // ... other default values ...
+    */
+  }
+
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
-    /* Font smoothing for better readability */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
