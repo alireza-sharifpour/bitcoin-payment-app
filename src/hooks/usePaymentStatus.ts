@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { PaymentStatusResponse } from "@/types"; // Assuming this type is defined in types/index.ts
+import { PaymentStatusResponse } from "../../types"; // Updated path to correct types location
 
 /**
  * Fetches the payment status for a given Bitcoin address.
@@ -27,7 +27,7 @@ async function fetchPaymentStatus(
       if (errorData && errorData.error) {
         errorMessage = errorData.error;
       }
-    } catch (e) {
+    } catch {
       // Ignore if response body is not JSON or empty
     }
     throw new Error(errorMessage);
