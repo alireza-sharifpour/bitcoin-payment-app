@@ -14,7 +14,7 @@
 import {
   paymentRequestSchema,
   type PaymentRequest,
-  formatBtcAmount,
+  generateBip21Uri,
 } from "@/lib/validation/payment";
 
 /**
@@ -103,9 +103,11 @@ export async function createPaymentRequest(
 
     // TODO: Task 3.1.4 - Implement BIP21 URI generation
     // const paymentUri = generateBip21Uri(address, amount);
-    const placeholderUri = `bitcoin:${placeholderAddress}?amount=${formatBtcAmount(
-      amount
-    )}&network=testnet`; // Placeholder for now
+    const placeholderUri = generateBip21Uri(
+      placeholderAddress,
+      amount,
+      "testnet"
+    ); // Use existing utility function
 
     // TODO: Task 3.2.3 - Implement webhook registration
     // const webhookId = await registerWebhook(address);
