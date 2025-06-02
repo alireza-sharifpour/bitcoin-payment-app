@@ -1,90 +1,69 @@
 /* src/app/globals.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-background: hsl(0, 0%, 100%);
+  --color-foreground: hsl(0, 0%, 10%);
+  --color-card: hsl(0, 0%, 97.6%);
+  --color-card-foreground: hsl(0, 0%, 10%);
+  --color-popover: hsl(0, 0%, 100%);
+  --color-popover-foreground: hsl(0, 0%, 10%);
+  --color-primary: hsl(33, 93%, 53%);
+  --color-primary-foreground: hsl(0, 0%, 100%);
+  --color-secondary: hsl(0, 0%, 29%);
+  --color-secondary-foreground: hsl(0, 0%, 100%);
+  --color-muted: hsl(0, 0%, 96.1%);
+  --color-muted-foreground: hsl(0, 0%, 33.3%);
+  --color-accent: hsl(0, 0%, 96.1%);
+  --color-accent-foreground: hsl(0, 0%, 9%);
+  --color-destructive: hsl(0, 84.2%, 60.2%);
+  --color-destructive-foreground: hsl(0, 0%, 98%);
+  --color-border: hsl(0, 0%, 89.8%);
+  --color-input: hsl(0, 0%, 89.8%);
+  --color-ring: hsl(33, 93%, 53%);
+
+  /* Bitcoin theme colors */
+  --color-bitcoin-orange: #f7931a;
+  --color-brand-secondary: #4a4a4a;
+  --color-text-main: #1a1a1a;
+  --color-text-muted-custom: #555555;
+  --color-bg-main-custom: #ffffff;
+  --color-bg-card-custom: #f9f9f9;
+
+  /* Radius */
+  --radius: 0.5rem;
+
+  /* Animation keyframes */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
 
 @layer base {
-  :root {
-    /* RESTORED Bitcoin Theme Palette */
-    --background: hsl(0, 0%, 100%); /* bg-main-custom: #FFFFFF */
-    --foreground: hsl(0, 0%, 10%); /* text-main: #1A1A1A */
-
-    --card: hsl(0, 0%, 97.6%); /* bg-card-custom: #F9F9F9 */
-    --card-foreground: hsl(0, 0%, 10%); /* Text on card */
-
-    --popover: hsl(0, 0%, 100%);
-    --popover-foreground: hsl(0, 0%, 10%);
-
-    --primary: hsl(33, 93%, 53%); /* bitcoin-orange: #f7931a */
-    --primary-foreground: hsl(0, 0%, 100%); /* White text on primary */
-
-    --secondary: hsl(0, 0%, 29%); /* brand-secondary: #4A4A4A */
-    --secondary-foreground: hsl(0, 0%, 100%); /* White text on secondary */
-
-    --muted: hsl(0, 0%, 96.1%); /* Default light gray for muted backgrounds */
-    --muted-foreground: hsl(0, 0%, 33.3%); /* text-muted-custom: #555555 */
-
-    --accent: hsl(0, 0%, 96.1%); /* Default light gray for accent */
-    --accent-foreground: hsl(0, 0%, 9%);
-
-    --destructive: hsl(0, 84.2%, 60.2%); /* Default red for destructive actions */
-    --destructive-foreground: hsl(0, 0%, 98%);
-
-    --border: hsl(0, 0%, 89.8%); /* Light gray border, e.g., #E5E5E5 */
-    --input: hsl(0, 0%, 89.8%); /* Input field border */
-    --ring: hsl(33, 93%, 53%); /* Ring color for focus, using primary */
-
-    --radius: 0.5rem;
-
-    /* Default shadcn/ui light theme values are now removed/commented
-    // --background: hsl(0 0% 100%);
-    // --foreground: hsl(222.2 84% 4.9%);
-    // ... other default values ...
-    */
-  }
-
-  .dark {
-    /* RESTORED Bitcoin Dark Theme Palette */
-    --background: hsl(0, 0%, 10%); /* Dark background: #1A1A1A */
-    --foreground: hsl(0, 0%, 98%); /* Light text on dark background */
-
-    --card: hsl(0, 0%, 12%); /* Slightly lighter card background in dark mode */
-    --card-foreground: hsl(0, 0%, 98%);
-
-    --popover: hsl(0, 0%, 12%);
-    --popover-foreground: hsl(0, 0%, 98%);
-
-    --primary: hsl(33, 93%, 53%);
-    --primary-foreground: hsl(0, 0%, 100%);
-
-    --secondary: hsl(0, 0%, 29%);
-    --secondary-foreground: hsl(0, 0%, 100%);
-
-    --muted: hsl(0, 0%, 15%);
-    --muted-foreground: hsl(0, 0%, 70%); /* Lighter gray text for dark mode */
-
-    --accent: hsl(0, 0%, 15%);
-    --accent-foreground: hsl(0, 0%, 98%);
-
-    --destructive: hsl(0, 72.2%, 50.6%);
-    --destructive-foreground: hsl(0, 0%, 98%);
-
-    --border: hsl(0, 0%, 20%); /* Darker border */
-    --input: hsl(0, 0%, 20%); /* Darker input border */
-    --ring: hsl(33, 93%, 53%); /* Ring color remains primary */
-
-    /* Default shadcn/ui dark theme values are now removed/commented
-    // --background: hsl(222.2 84% 4.9%);
-    // --foreground: hsl(210 40% 98%);
-    // ... other default values ...
-    */
-  }
-
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
