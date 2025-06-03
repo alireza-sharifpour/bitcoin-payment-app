@@ -31,7 +31,10 @@ export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
 
   const { paymentUri, address, amount } = paymentRequest;
 
-  const handleCopyToClipboard = async (textToCopy: string, fieldName: string) => {
+  const handleCopyToClipboard = async (
+    textToCopy: string,
+    fieldName: string
+  ) => {
     try {
       await navigator.clipboard.writeText(textToCopy);
       toast.success(`${fieldName} copied to clipboard!`);
@@ -65,7 +68,7 @@ export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
               value={paymentUri}
               size={256}
               bgColor={actualQrBgColor} // QR code modules background (white)
-              fgColor={qrFgColor}       // QR code modules foreground (dark)
+              fgColor={qrFgColor} // QR code modules foreground (dark)
               level="Q"
               includeMargin={true} // This margin area will also be actualQrBgColor
             />
