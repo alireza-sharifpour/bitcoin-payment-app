@@ -156,7 +156,7 @@ export async function createPaymentRequest(
     }
 
     // Initialize payment status in the store
-    initializePaymentStatus(address, amount, webhookId);
+    await initializePaymentStatus(address, amount, webhookId);
 
     // Create request timestamp
     const requestTimestamp = new Date();

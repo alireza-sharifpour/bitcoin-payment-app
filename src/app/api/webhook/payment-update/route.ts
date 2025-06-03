@@ -150,8 +150,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // ========================================================================
 
   try {
-    // Update the payment status in our in-memory store
-    updatePaymentStatus(
+    // Update the payment status in our file-based store
+    await updatePaymentStatus(
       parsedTransaction.address,
       parsedTransaction.status,
       parsedTransaction.transactionHash,

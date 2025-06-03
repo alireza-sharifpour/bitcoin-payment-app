@@ -78,8 +78,8 @@ export async function GET(
       );
     }
 
-    // Retrieve payment status from in-memory store
-    const paymentStatus = getPaymentStatus(address);
+    // Retrieve payment status from file-based store
+    const paymentStatus = await getPaymentStatus(address);
 
     if (!paymentStatus) {
       console.log(
