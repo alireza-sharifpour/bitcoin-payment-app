@@ -59,6 +59,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Log key webhook information
+  console.log("[WEBHOOK_DEBUG] Webhook received for transaction:", payload.hash);
+
+  // Get event type from headers (BlockCypher sends it as x-eventtype)
+  const eventType = req.headers.get('x-eventtype');
+  const webhookId = req.headers.get('x-eventid');
+  
+  if (!eventType) {
+    console.error("[WEBHOOK_ERROR] Missing x-eventtype header");
+    return NextResponse.json(
+      { error: "Missing event type header" },
+      { status: 400 }
+    );
+  }
+
+  // Validate supported event types
+  const supportedEvents = ['unconfirmed-tx', 'confirmed-tx', 'tx-confirmation', 'new-block', 'double-spend-tx'];
+  if (!supportedEvents.includes(eventType)) {
+    console.error("[WEBHOOK_ERROR] Unsupported event type:", eventType);
+    return NextResponse.json(
+      { error: `Unsupported event type: ${eventType}` },
+      { status: 400 }
+    );
+  }
+
   const validationResult = BlockcypherWebhookPayloadSchema.safeParse(payload);
 
   if (!validationResult.success) {
@@ -77,42 +102,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const validatedPayload = validationResult.data;
 
-  const expectedToken = process.env.BLOCKCYPHER_TOKEN;
-
-  if (!expectedToken) {
-    console.error(
-      "[WEBHOOK_ERROR] BLOCKCYPHER_TOKEN is not set in environment variables."
-    );
-    // This is a server configuration error and should be addressed by the administrator.
-    return NextResponse.json(
-      { error: "Internal server error: Webhook configuration missing" },
-      { status: 500 }
-    );
-  }
-
-  if (validatedPayload.token !== expectedToken) {
-    console.warn(
-      "[WEBHOOK_WARN] Webhook token mismatch. Unauthorized access attempt."
-    );
-    return NextResponse.json(
-      { error: "Unauthorized: Invalid token" },
-      { status: 403 }
-    );
-  }
-
   // ========================================================================
   // Task 5.1.3: Parse transaction data from webhook
   // ========================================================================
 
   console.log(
     "[WEBHOOK_INFO] Processing webhook for event:",
-    validatedPayload.event,
+    eventType,
     "tx_hash:",
-    validatedPayload.hash
+    validatedPayload.hash,
+    "webhook_id:",
+    webhookId
   );
 
   // Parse transaction data from the validated webhook payload
-  const parsedTransaction = parseWebhookTransaction(validatedPayload);
+  const parsedTransaction = parseWebhookTransaction(validatedPayload, eventType);
 
   if (!parsedTransaction) {
     console.error(
@@ -175,7 +179,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   console.log("[WEBHOOK_SUCCESS] Webhook processed successfully:", {
-    event: validatedPayload.event,
+    event: eventType,
     transactionHash: parsedTransaction.transactionHash,
     address: parsedTransaction.address,
     status: parsedTransaction.status,
