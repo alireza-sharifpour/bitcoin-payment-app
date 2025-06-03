@@ -16,6 +16,11 @@
  * - Validate parsed transaction data
  * - Prepare data for payment status updates
  *
+ * Task 5.2.2: Update payment status in store
+ * - Process unconfirmed-tx and confirmed-tx events
+ * - Update payment status in memory store
+ * - Handle double-spend and error scenarios
+ *
  * Security considerations:
  * - Validates webhook payload structure
  * - Logs all webhook events for debugging
@@ -29,6 +34,7 @@ import {
   parseWebhookTransaction,
   isValidTransaction,
 } from "@/lib/utils/webhook-parser";
+import { updatePaymentStatus } from "@/lib/store/payment-status";
 
 /**
  * POST handler for webhook payment updates
@@ -140,28 +146,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   // ========================================================================
-  // Task 5.2.2: Update payment status in store (placeholder)
+  // Task 5.2.2: Update payment status in store
   // ========================================================================
 
-  // TODO: Task 5.2.2 - Update the payment status in the in-memory store
-  // This will be implemented after Task 5.2.1 (create payment status store)
-  //
-  // Example implementation:
-  // try {
-  //   await updatePaymentStatusInStore(parsedTransaction.address, {
-  //     status: parsedTransaction.status,
-  //     confirmations: parsedTransaction.confirmations,
-  //     transactionId: parsedTransaction.transactionHash,
-  //     lastUpdated: parsedTransaction.lastUpdated,
-  //   });
-  //   console.log("[WEBHOOK_SUCCESS] Payment status updated in store");
-  // } catch (error) {
-  //   console.error("[WEBHOOK_ERROR] Failed to update payment status:", error);
-  //   return NextResponse.json(
-  //     { error: "Failed to update payment status" },
-  //     { status: 500 }
-  //   );
-  // }
+  try {
+    // Update the payment status in our in-memory store
+    updatePaymentStatus(
+      parsedTransaction.address,
+      parsedTransaction.status,
+      parsedTransaction.transactionHash,
+      parsedTransaction.confirmations,
+      parsedTransaction.totalAmount,
+      parsedTransaction.confidence,
+      parsedTransaction.isDoubleSpend
+    );
+
+    console.log("[WEBHOOK_SUCCESS] Payment status updated in store:", {
+      address: parsedTransaction.address,
+      status: parsedTransaction.status,
+      confirmations: parsedTransaction.confirmations,
+      transactionHash: parsedTransaction.transactionHash,
+    });
+  } catch (error) {
+    console.error("[WEBHOOK_ERROR] Failed to update payment status:", error);
+    // We log the error but don't fail the webhook response
+    // BlockCypher should still receive a 200 OK to prevent retries
+    // The error is logged for debugging purposes
+  }
 
   console.log("[WEBHOOK_SUCCESS] Webhook processed successfully:", {
     event: validatedPayload.event,
