@@ -64,29 +64,6 @@ export interface PaymentStatusResponse {
 }
 
 /**
- * Webhook event structure from Blockcypher
- * Used for processing incoming webhook notifications
- */
-export interface WebhookEvent {
-  /** Event type from Blockcypher */
-  event: "unconfirmed-tx" | "confirmed-tx" | "tx-confirmation";
-  /** Bitcoin address that triggered the event */
-  address: string;
-  /** Transaction hash */
-  hash: string;
-  /** Number of confirmations */
-  confirmations: number;
-  /** Transaction value in satoshis */
-  value?: number;
-  /** Block height (for confirmed transactions) */
-  block_height?: number;
-  /** Block hash (for confirmed transactions) */
-  block_hash?: string;
-  /** Webhook ID that triggered this event */
-  webhook_id?: string;
-}
-
-/**
  * Server Action response structure
  * Generic response type for Server Actions
  */
