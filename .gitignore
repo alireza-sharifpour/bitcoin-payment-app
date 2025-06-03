@@ -42,3 +42,8 @@ yarn-error.log*
 next-env.d.ts
 
 /docs
+# development payment store
+.payment-store/
+.payment-store-test/
+.payment-store.json
+
