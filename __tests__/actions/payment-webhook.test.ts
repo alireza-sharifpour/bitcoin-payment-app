@@ -6,28 +6,31 @@
  * - Handle registration failures gracefully
  */
 
-import { createPaymentRequest } from "@/actions/payment";
-
-// Mock the Blockcypher API client
+// Set up mocks BEFORE any imports
+// Mock the Blockcypher API client - must mock the entire module to prevent real API calls
 jest.mock("@/lib/api/blockcypher", () => ({
+  __esModule: true,
   registerPaymentWebhook: jest.fn(),
-}));
-
-// Mock the wallet generation
-jest.mock("@/lib/bitcoin/wallet", () => ({
-  generateWalletAddress: jest.fn(),
 }));
 
 // Mock the BIP21 URI generation
 jest.mock("@/lib/validation/payment", () => ({
+  ...jest.requireActual("@/lib/validation/payment"),
   paymentRequestSchema: {
     safeParse: jest.fn(),
   },
   generateBip21Uri: jest.fn(),
 }));
 
+// Mock the payment status store
+jest.mock("@/lib/store/payment-status", () => ({
+  initializePaymentStatus: jest.fn(() => Promise.resolve()),
+}));
+
+import { describe, it, expect, jest, beforeEach, afterAll } from "@jest/globals";
+
+import { createPaymentRequest } from "@/actions/payment";
 import { registerPaymentWebhook } from "@/lib/api/blockcypher";
-import { generateWalletAddress } from "@/lib/bitcoin/wallet";
 import {
   paymentRequestSchema,
   generateBip21Uri,
@@ -35,9 +38,6 @@ import {
 
 const mockRegisterPaymentWebhook =
   registerPaymentWebhook as jest.MockedFunction<typeof registerPaymentWebhook>;
-const mockGenerateWalletAddress = generateWalletAddress as jest.MockedFunction<
-  typeof generateWalletAddress
->;
 // Create a proper mock for the Zod schema
 const mockPaymentRequestSchemaSafeParse = jest.fn();
 (paymentRequestSchema as jest.Mocked<typeof paymentRequestSchema>).safeParse =
@@ -54,6 +54,9 @@ describe("Task 3.2.3 - Payment Server Action Webhook Integration", () => {
   beforeEach(() => {
     jest.resetAllMocks();
     process.env = { ...ORIGINAL_ENV };
+    // Clear environment variables to prevent webhook calls unless explicitly set in test
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.VERCEL_URL;
   });
 
   afterAll(() => {
@@ -67,19 +70,14 @@ describe("Task 3.2.3 - Payment Server Action Webhook Integration", () => {
       data: { amount: 0.001 },
     });
 
-    // Mock wallet address generation
-    mockGenerateWalletAddress.mockReturnValue(
-      "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
-    );
-
-    // Mock BIP21 URI generation
-    mockGenerateBip21Uri.mockReturnValue(
-      "bitcoin:tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4?amount=0.001&network=testnet"
+    // Mock BIP21 URI generation - use generic pattern since real wallet generates dynamic addresses
+    mockGenerateBip21Uri.mockImplementation((address, amount) => 
+      `bitcoin:${address}?amount=${amount}&network=testnet`
     );
 
     // Mock webhook registration
     if (webhookSuccess) {
-      mockRegisterPaymentWebhook.mockResolvedValue("webhook-123");
+      mockRegisterPaymentWebhook.mockResolvedValue(["webhook-123", "webhook-456"]);
     } else {
       mockRegisterPaymentWebhook.mockRejectedValue(
         new Error("Webhook registration failed")
@@ -100,7 +98,7 @@ describe("Task 3.2.3 - Payment Server Action Webhook Integration", () => {
       expect(result.success).toBe(true);
       expect(result.data?.webhookId).toBe("webhook-123");
       expect(mockRegisterPaymentWebhook).toHaveBeenCalledWith(
-        "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        expect.stringMatching(/^tb1/), // Real wallet generates dynamic addresses
         "https://example.com/api/webhook/payment-update"
       );
     });
@@ -116,7 +114,7 @@ describe("Task 3.2.3 - Payment Server Action Webhook Integration", () => {
 
       expect(result.success).toBe(true);
       expect(mockRegisterPaymentWebhook).toHaveBeenCalledWith(
-        "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        expect.stringMatching(/^tb1/), // Real wallet generates dynamic addresses
         "https://example.com/api/webhook/payment-update"
       );
     });
@@ -133,7 +131,7 @@ describe("Task 3.2.3 - Payment Server Action Webhook Integration", () => {
 
       expect(result.success).toBe(true);
       expect(mockRegisterPaymentWebhook).toHaveBeenCalledWith(
-        "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        expect.stringMatching(/^tb1/), // Real wallet generates dynamic addresses
         "https://myapp.vercel.app/api/webhook/payment-update"
       );
     });
@@ -151,11 +149,9 @@ describe("Task 3.2.3 - Payment Server Action Webhook Integration", () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.webhookId).toBeUndefined();
-      expect(result.data?.address).toBe(
-        "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
-      );
-      expect(result.data?.paymentUri).toBe(
-        "bitcoin:tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4?amount=0.001&network=testnet"
+      expect(result.data?.address).toMatch(/^tb1[a-z0-9]{39}$/); // Real wallet generates dynamic addresses
+      expect(result.data?.paymentUri).toMatch(
+        /^bitcoin:tb1[a-z0-9]{39}\?amount=0\.001&network=testnet$/
       );
     });
 
@@ -189,27 +185,26 @@ describe("Task 3.2.3 - Payment Server Action Webhook Integration", () => {
       expect(mockPaymentRequestSchemaSafeParse).toHaveBeenCalledWith({
         amount: "0.001",
       });
-      expect(mockGenerateWalletAddress).toHaveBeenCalled();
+      // Note: We don't mock wallet generation - it uses real implementation
       expect(mockGenerateBip21Uri).toHaveBeenCalledWith(
-        "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        expect.stringMatching(/^tb1/), // Real wallet generates dynamic addresses
         0.001,
         "testnet"
       );
       expect(mockRegisterPaymentWebhook).toHaveBeenCalledWith(
-        "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        expect.stringMatching(/^tb1/), // Real wallet generates dynamic addresses
         "https://myapp.com/api/webhook/payment-update"
       );
 
       // Verify complete response structure
       expect(result.success).toBe(true);
-      expect(result.data).toMatchObject({
-        address: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
-        amount: 0.001,
-        paymentUri:
-          "bitcoin:tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4?amount=0.001&network=testnet",
-        webhookId: "webhook-123",
-        requestTimestamp: expect.any(Date),
-      });
+      expect(result.data?.address).toMatch(/^tb1[a-z0-9]{39}$/);
+      expect(result.data?.amount).toBe(0.001);
+      expect(result.data?.paymentUri).toMatch(
+        /^bitcoin:tb1[a-z0-9]{39}\?amount=0\.001&network=testnet$/
+      );
+      expect(result.data?.webhookId).toBe("webhook-123");
+      expect(result.data?.requestTimestamp).toBeInstanceOf(Date);
     });
 
     it("should still succeed when wallet generation works but webhook fails", async () => {

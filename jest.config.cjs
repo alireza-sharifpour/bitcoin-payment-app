@@ -21,6 +21,9 @@ const customJestConfig = {
     "!src/**/*.d.ts",
     "!src/**/__tests__/**",
   ],
+  // Clear module cache between tests to ensure mocks are applied
+  clearMocks: true,
+  resetModules: true,
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
