@@ -17,6 +17,7 @@ import {
 } from "@/lib/validation/payment";
 import { generateWalletAddress } from "@/lib/bitcoin/wallet";
 import { registerPaymentWebhook } from "@/lib/api/blockcypher";
+import { initializePaymentStatus } from "@/lib/store/payment-status";
 
 /**
  * Server Action Response Types
@@ -153,6 +154,9 @@ export async function createPaymentRequest(
       // but users will need to check payment status manually rather than
       // receiving automatic webhook notifications
     }
+
+    // Initialize payment status in the store
+    initializePaymentStatus(address, amount, webhookId);
 
     // Create request timestamp
     const requestTimestamp = new Date();
