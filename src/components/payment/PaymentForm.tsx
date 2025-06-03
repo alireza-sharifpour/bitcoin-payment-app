@@ -1,10 +1,9 @@
 // src/components/payment/PaymentForm.tsx
 "use client";
 
-import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -53,6 +52,7 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
     defaultValues: {
       amount: "",
     },
+    mode: "onChange",
   });
 
   // Initialize useActionState with the wrapper function
@@ -62,7 +62,7 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
   );
 
   // Handle state changes from Server Action
-  React.useEffect(() => {
+  useEffect(() => {
     if (state?.success && state.data) {
       toast.success("Payment request created successfully!");
       onPaymentRequestCreated(state.data);
@@ -137,7 +137,11 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
               )}
             />
             {/* Default Button uses --primary and --primary-foreground */}
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isPending || !form.formState.isValid}
+            >
               {isPending ? "Creating Request..." : "Create Payment Request"}
             </Button>
           </form>
