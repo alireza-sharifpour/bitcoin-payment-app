@@ -102,7 +102,7 @@ export function extractAddress(
 ): string | null {
   // First, try the direct address field
   if (payload.address) {
-    return payload.address;
+    return payload.address as string;
   }
 
   // If no direct address, try to extract from outputs
@@ -155,10 +155,12 @@ export function calculateAmountReceived(
  * from a validated BlockCypher webhook payload
  *
  * @param payload - Validated BlockCypher webhook payload
+ * @param eventType - Event type from webhook headers
  * @returns Parsed transaction data or null if address cannot be determined
  */
 export function parseWebhookTransaction(
-  payload: BlockcypherWebhookPayload
+  payload: BlockcypherWebhookPayload,
+  eventType: string
 ): ParsedTransactionData | null {
   const address = extractAddress(payload);
 
@@ -172,7 +174,7 @@ export function parseWebhookTransaction(
   const confirmations = payload.confirmations ?? 0;
   const isDoubleSpend = payload.double_spend ?? false;
   const status = mapEventToPaymentStatus(
-    payload.event,
+    eventType,
     confirmations,
     isDoubleSpend
   );
@@ -185,7 +187,7 @@ export function parseWebhookTransaction(
     status,
     totalAmount,
     fees: payload.fees,
-    confidence: payload.confidence,
+    confidence: payload.confidence as number,
     isDoubleSpend,
     lastUpdated: Date.now(),
   };
@@ -196,7 +198,7 @@ export function parseWebhookTransaction(
     status: parsedData.status,
     confirmations: parsedData.confirmations,
     totalAmount: parsedData.totalAmount,
-    event: payload.event,
+    event: eventType,
   });
 
   return parsedData;
