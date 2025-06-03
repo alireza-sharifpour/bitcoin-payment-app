@@ -139,8 +139,9 @@ export async function createPaymentRequest(
           `Registering webhook for address ${address} at ${webhookUrl}`
         );
 
-        webhookId = await registerPaymentWebhook(address, webhookUrl);
-        console.log(`Webhook registered successfully with ID: ${webhookId}`);
+        const webhookIds = await registerPaymentWebhook(address, webhookUrl);
+        webhookId = webhookIds[0]; // Store first webhook ID for compatibility
+        console.log(`Webhooks registered successfully with IDs: ${webhookIds.join(', ')}`);
       }
     } catch (webhookError) {
       // Log webhook registration failure but don't fail the entire request
