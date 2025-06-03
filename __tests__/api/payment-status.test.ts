@@ -1,18 +1,13 @@
 /**
  * Tests for payment status API route
- * 
+ *
  * Tests the GET /api/payment-status/[address] endpoint
  * for Task 5.2.3: Create status retrieval endpoint
  */
 
 import { NextRequest } from "next/server";
 import { GET, POST, OPTIONS } from "@/app/api/payment-status/[address]/route";
-import {
-  getPaymentStatus,
-  initializePaymentStatus,
-  updatePaymentStatus,
-  clearAllPaymentStatuses,
-} from "@/lib/store/payment-status";
+import { getPaymentStatus } from "@/lib/store/payment-status";
 import { PaymentStatus } from "../../types";
 
 // Mock the payment status store module
@@ -28,7 +23,7 @@ describe("Payment Status API Route", () => {
   const validNativeSegwitAddress = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx";
   const validLegacyAddress = "mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn";
   const validP2SHAddress = "2MzQwSSnBHWHqSAqtTVQ6v47XtaisrJa1Vc";
-  
+
   // Invalid addresses for testing
   const invalidAddress = "invalid_address";
   const mainnetAddress = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
@@ -58,7 +53,7 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(200);
-      
+
       const data = await response.json();
       expect(data).toEqual(mockStatus);
       expect(getPaymentStatus).toHaveBeenCalledWith(validNativeSegwitAddress);
@@ -76,9 +71,11 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(404);
-      
+
       const data = await response.json();
-      expect(data.error).toBe("Payment status not found for the specified address");
+      expect(data.error).toBe(
+        "Payment status not found for the specified address"
+      );
     });
 
     it("should return 400 for missing address parameter", async () => {
@@ -91,7 +88,7 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(400);
-      
+
       const data = await response.json();
       expect(data.error).toBe("Address parameter is required");
     });
@@ -106,7 +103,7 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(400);
-      
+
       const data = await response.json();
       expect(data.error).toBe("Invalid Bitcoin testnet address format");
       expect(getPaymentStatus).not.toHaveBeenCalled();
@@ -122,7 +119,7 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(400);
-      
+
       const data = await response.json();
       expect(data.error).toBe("Invalid Bitcoin testnet address format");
     });
@@ -166,7 +163,7 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(200);
-      
+
       const data = await response.json();
       expect(data.status).toBe(PaymentStatus.CONFIRMED);
       expect(data.confirmations).toBe(6);
@@ -191,7 +188,7 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(200);
-      
+
       const data = await response.json();
       expect(data.status).toBe(PaymentStatus.ERROR);
       expect(data.errorMessage).toBe("Double spend detected");
@@ -211,9 +208,11 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(500);
-      
+
       const data = await response.json();
-      expect(data.error).toBe("Internal server error while retrieving payment status");
+      expect(data.error).toBe(
+        "Internal server error while retrieving payment status"
+      );
     });
 
     it("should set appropriate cache headers", async () => {
@@ -233,7 +232,7 @@ describe("Payment Status API Route", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(response.headers.get('Cache-Control')).toBe('public, max-age=2');
+      expect(response.headers.get("Cache-Control")).toBe("public, max-age=2");
     });
   });
 
@@ -242,9 +241,13 @@ describe("Payment Status API Route", () => {
       const response = await OPTIONS();
 
       expect(response.status).toBe(200);
-      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
-      expect(response.headers.get('Access-Control-Allow-Methods')).toBe('GET, OPTIONS');
-      expect(response.headers.get('Access-Control-Allow-Headers')).toBe('Content-Type');
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      expect(response.headers.get("Access-Control-Allow-Methods")).toBe(
+        "GET, OPTIONS"
+      );
+      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
+        "Content-Type"
+      );
     });
   });
 
@@ -253,7 +256,7 @@ describe("Payment Status API Route", () => {
       const response = await POST();
 
       expect(response.status).toBe(405);
-      
+
       const data = await response.json();
       expect(data.error).toBe("Method not allowed");
       expect(data.message).toBe("This endpoint only accepts GET requests");
@@ -264,7 +267,7 @@ describe("Payment Status API Route", () => {
     it("should handle payment status transitions correctly", async () => {
       // Simulate a payment going from awaiting to confirmed
       const address = validNativeSegwitAddress;
-      
+
       // First call - awaiting payment
       (getPaymentStatus as jest.Mock).mockReturnValue({
         status: PaymentStatus.AWAITING_PAYMENT,
@@ -276,7 +279,7 @@ describe("Payment Status API Route", () => {
       );
       let response = await GET(request, { params: { address } });
       let data = await response.json();
-      
+
       expect(data.status).toBe(PaymentStatus.AWAITING_PAYMENT);
       expect(data.transactionId).toBeUndefined();
 
@@ -293,7 +296,7 @@ describe("Payment Status API Route", () => {
       );
       response = await GET(request, { params: { address } });
       data = await response.json();
-      
+
       expect(data.status).toBe(PaymentStatus.PAYMENT_DETECTED);
       expect(data.confirmations).toBe(0);
       expect(data.transactionId).toBe("txid123");
@@ -311,7 +314,7 @@ describe("Payment Status API Route", () => {
       );
       response = await GET(request, { params: { address } });
       data = await response.json();
-      
+
       expect(data.status).toBe(PaymentStatus.CONFIRMED);
       expect(data.confirmations).toBe(3);
     });
