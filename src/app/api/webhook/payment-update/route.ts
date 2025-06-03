@@ -10,6 +10,12 @@
  * - Responds to BlockCypher webhook requests
  * - Includes proper error handling and logging
  *
+ * Task 5.1.3: Parse transaction data from webhook
+ * - Extract transaction hash, confirmations, and address
+ * - Map BlockCypher events to internal payment status types
+ * - Validate parsed transaction data
+ * - Prepare data for payment status updates
+ *
  * Security considerations:
  * - Validates webhook payload structure
  * - Logs all webhook events for debugging
@@ -19,6 +25,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { BlockcypherWebhookPayloadSchema } from "@/lib/validation/webhook";
+import {
+  parseWebhookTransaction,
+  isValidTransaction,
+} from "@/lib/utils/webhook-parser";
 
 /**
  * POST handler for webhook payment updates
@@ -84,27 +94,89 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Payload structure and authenticity (token) are now validated.
-  // The next step (Task 5.1.3) will be to parse the transaction data from validatedPayload
-  // and then (Task 5.2.2) update the payment status in the in-memory store.
-
-  // Example of what might happen next (pseudo-code for future tasks):
-  // const { event, hash, confirmations, address, outputs } = validatedPayload;
-  // const paymentAddress = address; // Or derived from outputs if not directly available
-  // if (paymentAddress) {
-  //   updatePaymentStatusInStore(paymentAddress, validatedPayload);
-  // } else {
-  //   console.warn('[WEBHOOK_WARN] Could not determine payment address from webhook.');
-  // }
+  // ========================================================================
+  // Task 5.1.3: Parse transaction data from webhook
+  // ========================================================================
 
   console.log(
-    "[WEBHOOK_INFO] Webhook received and validated successfully for event:",
+    "[WEBHOOK_INFO] Processing webhook for event:",
     validatedPayload.event,
     "tx_hash:",
     validatedPayload.hash
   );
+
+  // Parse transaction data from the validated webhook payload
+  const parsedTransaction = parseWebhookTransaction(validatedPayload);
+
+  if (!parsedTransaction) {
+    console.error(
+      "[WEBHOOK_ERROR] Could not parse transaction data from webhook payload"
+    );
+    return NextResponse.json(
+      { error: "Unable to parse transaction data" },
+      { status: 400 }
+    );
+  }
+
+  // Validate the parsed transaction data
+  if (!isValidTransaction(parsedTransaction)) {
+    console.error(
+      "[WEBHOOK_ERROR] Parsed transaction data is invalid:",
+      parsedTransaction
+    );
+    return NextResponse.json(
+      { error: "Invalid transaction data" },
+      { status: 400 }
+    );
+  }
+
+  console.log("[WEBHOOK_SUCCESS] Successfully parsed transaction data:", {
+    transactionHash: parsedTransaction.transactionHash,
+    address: parsedTransaction.address,
+    status: parsedTransaction.status,
+    confirmations: parsedTransaction.confirmations,
+    amount: parsedTransaction.totalAmount,
+    isDoubleSpend: parsedTransaction.isDoubleSpend,
+  });
+
+  // ========================================================================
+  // Task 5.2.2: Update payment status in store (placeholder)
+  // ========================================================================
+
+  // TODO: Task 5.2.2 - Update the payment status in the in-memory store
+  // This will be implemented after Task 5.2.1 (create payment status store)
+  //
+  // Example implementation:
+  // try {
+  //   await updatePaymentStatusInStore(parsedTransaction.address, {
+  //     status: parsedTransaction.status,
+  //     confirmations: parsedTransaction.confirmations,
+  //     transactionId: parsedTransaction.transactionHash,
+  //     lastUpdated: parsedTransaction.lastUpdated,
+  //   });
+  //   console.log("[WEBHOOK_SUCCESS] Payment status updated in store");
+  // } catch (error) {
+  //   console.error("[WEBHOOK_ERROR] Failed to update payment status:", error);
+  //   return NextResponse.json(
+  //     { error: "Failed to update payment status" },
+  //     { status: 500 }
+  //   );
+  // }
+
+  console.log("[WEBHOOK_SUCCESS] Webhook processed successfully:", {
+    event: validatedPayload.event,
+    transactionHash: parsedTransaction.transactionHash,
+    address: parsedTransaction.address,
+    status: parsedTransaction.status,
+  });
+
   return NextResponse.json(
-    { message: "Webhook received and validated" },
+    {
+      message: "Webhook processed successfully",
+      transactionHash: parsedTransaction.transactionHash,
+      status: parsedTransaction.status,
+      confirmations: parsedTransaction.confirmations,
+    },
     { status: 200 }
   );
 }
