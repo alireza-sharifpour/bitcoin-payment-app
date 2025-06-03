@@ -4,7 +4,7 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useActionState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -39,6 +39,14 @@ interface PaymentFormProps {
   onPaymentRequestCreated: (data: PaymentRequestData) => void;
 }
 
+// Wrapper function to make Server Action compatible with useActionState
+async function createPaymentRequestAction(
+  prevState: CreatePaymentRequestResult | null,
+  formData: FormData
+): Promise<CreatePaymentRequestResult> {
+  return createPaymentRequest(formData);
+}
+
 export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(formSchema),
@@ -47,47 +55,45 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
     },
   });
 
-  const mutation = useMutation<CreatePaymentRequestResult, Error, FormData>({
-    mutationFn: async (formData: FormData) => {
-      return createPaymentRequest(formData);
-    },
-    onSuccess: (result) => {
-      if (result.success && result.data) {
-        toast.success("Payment request created successfully!");
-        onPaymentRequestCreated(result.data);
-        form.reset();
-      } else {
-        toast.error(
-          result.error || "Failed to create payment request. Please try again."
-        );
-      }
-    },
-    onError: (error) => {
-      toast.error(
-        `An error occurred: ${
-          error.message || "Unknown error. Please try again."
-        }`
-      );
-    },
-  });
+  // Initialize useActionState with the wrapper function
+  const [state, formAction, isPending] = useActionState(
+    createPaymentRequestAction,
+    null
+  );
 
-  function onSubmit(values: PaymentFormValues) {
+  // Handle state changes from Server Action
+  React.useEffect(() => {
+    if (state?.success && state.data) {
+      toast.success("Payment request created successfully!");
+      onPaymentRequestCreated(state.data);
+      form.reset();
+    } else if (state && !state.success && state.error) {
+      toast.error(
+        state.error || "Failed to create payment request. Please try again."
+      );
+    }
+  }, [state, form, onPaymentRequestCreated]);
+
+  // Client-side validation before form submission
+  function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
+    const formData = new FormData(event.currentTarget);
+    const amount = formData.get("amount") as string;
+
     // Validate with the real schema before submission
     const validationResult = paymentRequestSchema.safeParse({
-      amount: values.amount,
+      amount: amount,
     });
 
     if (!validationResult.success) {
-      // Show validation errors
+      // Prevent form submission and show validation errors
+      event.preventDefault();
       validationResult.error.errors.forEach((error) => {
         form.setError("amount", { message: error.message });
       });
       return;
     }
 
-    const formData = new FormData();
-    formData.append("amount", String(validationResult.data.amount));
-    mutation.mutate(formData);
+    // If validation passes, let the form submit naturally to the action
   }
 
   return (
@@ -99,7 +105,11 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form
+            action={formAction}
+            onSubmit={handleFormSubmit}
+            className="space-y-6"
+          >
             <FormField
               control={form.control}
               name="amount"
@@ -114,7 +124,7 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
                       {...field}
                       type="number"
                       step="any"
-                      disabled={mutation.isPending}
+                      disabled={isPending}
                     />
                   </FormControl>
                   {/* FormDescription will use --muted-foreground */}
@@ -127,14 +137,8 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
               )}
             />
             {/* Default Button uses --primary and --primary-foreground */}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending
-                ? "Creating Request..."
-                : "Create Payment Request"}
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Creating Request..." : "Create Payment Request"}
             </Button>
           </form>
         </Form>
