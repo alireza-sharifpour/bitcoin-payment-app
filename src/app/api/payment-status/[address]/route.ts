@@ -1,24 +1,24 @@
 /**
  * Payment Status API Route
- * 
+ *
  * Task 5.2.3: Create status retrieval endpoint
- * 
+ *
  * This API route provides a GET endpoint at `/api/payment-status/[address]`
  * that returns the current payment status for a specific Bitcoin address.
  * The status is retrieved from the in-memory store that gets updated by
  * webhook events from BlockCypher.
- * 
+ *
  * Key features:
  * - GET endpoint for retrieving payment status by address
  * - Returns current status from in-memory store
  * - Client-safe response (no sensitive data)
  * - Proper error handling for invalid or non-existent addresses
- * 
+ *
  * Usage:
  * - Client polls this endpoint via TanStack Query
  * - Returns status object with payment information
  * - 404 if address not found, 200 with status if found
- * 
+ *
  * Response format:
  * {
  *   status: 'AWAITING_PAYMENT' | 'PAYMENT_DETECTED' | 'CONFIRMED' | 'ERROR',
@@ -35,13 +35,13 @@ import type { PaymentStatusResponse } from "../../../../../types";
 
 /**
  * GET handler for retrieving payment status
- * 
+ *
  * Endpoint: GET /api/payment-status/[address]
- * 
+ *
  * This endpoint is designed to be polled by the client using TanStack Query
  * to monitor payment status updates. The status is updated by webhook events
  * from BlockCypher and stored in our in-memory store.
- * 
+ *
  * @param request - Next.js request object
  * @param params - Route params containing the Bitcoin address
  * @returns NextResponse with payment status or error
@@ -64,10 +64,14 @@ export async function GET(
 
     // Basic validation for Bitcoin testnet address format
     // Testnet addresses can start with: tb1 (native segwit), 2, m, or n
-    const testnetAddressRegex = /^(tb1[a-z0-9]{39,59}|[2mn][a-zA-Z0-9]{33,34})$/;
-    
+    const testnetAddressRegex =
+      /^(tb1[a-z0-9]{39,59}|[2mn][a-zA-Z0-9]{33,34})$/;
+
     if (!testnetAddressRegex.test(address)) {
-      console.error("[PAYMENT_STATUS_API] Invalid Bitcoin testnet address format:", address);
+      console.error(
+        "[PAYMENT_STATUS_API] Invalid Bitcoin testnet address format:",
+        address
+      );
       return NextResponse.json(
         { error: "Invalid Bitcoin testnet address format" },
         { status: 400 }
@@ -78,7 +82,10 @@ export async function GET(
     const paymentStatus = getPaymentStatus(address);
 
     if (!paymentStatus) {
-      console.log("[PAYMENT_STATUS_API] Payment status not found for address:", address);
+      console.log(
+        "[PAYMENT_STATUS_API] Payment status not found for address:",
+        address
+      );
       return NextResponse.json(
         { error: "Payment status not found for the specified address" },
         { status: 404 }
@@ -86,11 +93,15 @@ export async function GET(
     }
 
     // Log successful retrieval for monitoring
-    console.log("[PAYMENT_STATUS_API] Retrieved payment status for address:", address, {
-      status: paymentStatus.status,
-      confirmations: paymentStatus.confirmations,
-      hasTransaction: !!paymentStatus.transactionId,
-    });
+    console.log(
+      "[PAYMENT_STATUS_API] Retrieved payment status for address:",
+      address,
+      {
+        status: paymentStatus.status,
+        confirmations: paymentStatus.confirmations,
+        hasTransaction: !!paymentStatus.transactionId,
+      }
+    );
 
     // Return the payment status
     // The response type matches PaymentStatusResponse interface
@@ -102,15 +113,14 @@ export async function GET(
       lastUpdated: paymentStatus.lastUpdated,
     };
 
-    return NextResponse.json(response, { 
+    return NextResponse.json(response, {
       status: 200,
       headers: {
         // Allow client-side caching for a short period
         // Since this is polled frequently, we allow brief caching
-        'Cache-Control': 'public, max-age=2',
-      }
+        "Cache-Control": "public, max-age=2",
+      },
     });
-
   } catch (error) {
     console.error("[PAYMENT_STATUS_API] Unexpected error:", error);
     return NextResponse.json(
@@ -122,16 +132,16 @@ export async function GET(
 
 /**
  * OPTIONS handler for CORS preflight requests
- * 
+ *
  * Allows the endpoint to be called from browser clients
  */
 export async function OPTIONS(): Promise<NextResponse> {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
     },
   });
 }
@@ -141,9 +151,9 @@ export async function OPTIONS(): Promise<NextResponse> {
  */
 export async function POST(): Promise<NextResponse> {
   return NextResponse.json(
-    { 
-      error: "Method not allowed", 
-      message: "This endpoint only accepts GET requests" 
+    {
+      error: "Method not allowed",
+      message: "This endpoint only accepts GET requests",
     },
     { status: 405 }
   );
@@ -151,9 +161,9 @@ export async function POST(): Promise<NextResponse> {
 
 export async function PUT(): Promise<NextResponse> {
   return NextResponse.json(
-    { 
-      error: "Method not allowed", 
-      message: "This endpoint only accepts GET requests" 
+    {
+      error: "Method not allowed",
+      message: "This endpoint only accepts GET requests",
     },
     { status: 405 }
   );
@@ -161,9 +171,9 @@ export async function PUT(): Promise<NextResponse> {
 
 export async function DELETE(): Promise<NextResponse> {
   return NextResponse.json(
-    { 
-      error: "Method not allowed", 
-      message: "This endpoint only accepts GET requests" 
+    {
+      error: "Method not allowed",
+      message: "This endpoint only accepts GET requests",
     },
     { status: 405 }
   );
@@ -171,9 +181,9 @@ export async function DELETE(): Promise<NextResponse> {
 
 export async function PATCH(): Promise<NextResponse> {
   return NextResponse.json(
-    { 
-      error: "Method not allowed", 
-      message: "This endpoint only accepts GET requests" 
+    {
+      error: "Method not allowed",
+      message: "This endpoint only accepts GET requests",
     },
     { status: 405 }
   );
