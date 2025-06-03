@@ -131,9 +131,17 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
                   </p>
                 )}
                 {paymentStatus.transactionId && (
-                  <p className="text-xs text-muted-foreground break-all">
-                    Transaction: {paymentStatus.transactionId}
-                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    <p className="mb-1">Transaction:</p>
+                    <a 
+                      href={`https://mempool.space/testnet/tx/${paymentStatus.transactionId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 underline break-all"
+                    >
+                      {paymentStatus.transactionId}
+                    </a>
+                  </div>
                 )}
               </div>
             </CardContent>
