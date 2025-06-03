@@ -1,13 +1,17 @@
 /**
  * Tests for webhook payment update API route
- * 
+ *
  * Tests the integration between the webhook handler and payment status store
  * for Task 5.2.2: Update status from webhook events
  */
 
 import { NextRequest } from "next/server";
 import { POST, GET } from "@/app/api/webhook/payment-update/route";
-import { getPaymentStatus, clearAllPaymentStatuses, initializePaymentStatus } from "@/lib/store/payment-status";
+import {
+  getPaymentStatus,
+  clearAllPaymentStatuses,
+  initializePaymentStatus,
+} from "@/lib/store/payment-status";
 import { PaymentStatus } from "../../types";
 
 // Mock environment variable
@@ -30,7 +34,8 @@ beforeEach(() => {
 
 describe("Webhook Payment Update API Route", () => {
   const testAddress = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx";
-  const testTransactionHash = "d5f9b0c9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1";
+  const testTransactionHash =
+    "d5f9b0c9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1";
 
   describe("POST handler", () => {
     it("should update payment status for unconfirmed transaction", async () => {
@@ -47,10 +52,13 @@ describe("Webhook Payment Update API Route", () => {
         token: "test-token-123",
       };
 
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(webhookPayload),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(webhookPayload),
+        }
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -79,13 +87,16 @@ describe("Webhook Payment Update API Route", () => {
         token: "test-token-123",
       };
 
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(webhookPayload),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(webhookPayload),
+        }
+      );
 
       const response = await POST(request);
-      const data = await response.json();
+      // const data = await response.json();
 
       expect(response.status).toBe(200);
 
@@ -107,13 +118,16 @@ describe("Webhook Payment Update API Route", () => {
         token: "test-token-123",
       };
 
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(webhookPayload),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(webhookPayload),
+        }
+      );
 
       const response = await POST(request);
-      
+
       expect(response.status).toBe(200);
 
       // Verify payment status was updated to ERROR
@@ -134,13 +148,16 @@ describe("Webhook Payment Update API Route", () => {
         token: "test-token-123",
       };
 
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(webhookPayload),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(webhookPayload),
+        }
+      );
 
       const response = await POST(request);
-      
+
       expect(response.status).toBe(200);
 
       // Should create new payment status
@@ -158,10 +175,13 @@ describe("Webhook Payment Update API Route", () => {
         token: "invalid-token",
       };
 
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(webhookPayload),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(webhookPayload),
+        }
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -171,10 +191,13 @@ describe("Webhook Payment Update API Route", () => {
     });
 
     it("should reject webhook with invalid JSON", async () => {
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: "invalid json",
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: "invalid json",
+        }
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -190,10 +213,13 @@ describe("Webhook Payment Update API Route", () => {
         // Missing hash, address, token
       };
 
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(webhookPayload),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(webhookPayload),
+        }
+      );
 
       const response = await POST(request);
       const data = await response.json();
@@ -205,7 +231,7 @@ describe("Webhook Payment Update API Route", () => {
     it("should update existing payment from PAYMENT_DETECTED to CONFIRMED", async () => {
       // Initialize as payment detected
       initializePaymentStatus(testAddress, 0.001);
-      
+
       // First webhook - unconfirmed
       const unconfirmedPayload = {
         event: "unconfirmed-tx",
@@ -217,10 +243,13 @@ describe("Webhook Payment Update API Route", () => {
         token: "test-token-123",
       };
 
-      let request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(unconfirmedPayload),
-      });
+      let request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(unconfirmedPayload),
+        }
+      );
 
       await POST(request);
 
@@ -238,10 +267,13 @@ describe("Webhook Payment Update API Route", () => {
         token: "test-token-123",
       };
 
-      request = new NextRequest("http://localhost:3000/api/webhook/payment-update", {
-        method: "POST",
-        body: JSON.stringify(confirmedPayload),
-      });
+      request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update",
+        {
+          method: "POST",
+          body: JSON.stringify(confirmedPayload),
+        }
+      );
 
       await POST(request);
 
@@ -254,7 +286,9 @@ describe("Webhook Payment Update API Route", () => {
 
   describe("GET handler", () => {
     it("should return health check response", async () => {
-      const request = new NextRequest("http://localhost:3000/api/webhook/payment-update");
+      const request = new NextRequest(
+        "http://localhost:3000/api/webhook/payment-update"
+      );
       const response = await GET(request);
       const data = await response.json();
 
