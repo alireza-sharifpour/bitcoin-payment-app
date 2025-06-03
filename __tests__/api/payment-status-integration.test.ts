@@ -19,26 +19,26 @@ describe("Payment Status API Route - Integration Tests", () => {
   const testAddress = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx";
   const testTransactionHash = "d5f9b0c9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clear the store before each test
-    clearAllPaymentStatuses();
+    await clearAllPaymentStatuses();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up after each test
-    clearAllPaymentStatuses();
+    await clearAllPaymentStatuses();
   });
 
   it("should integrate correctly with the payment status store", async () => {
     // Initialize a payment status
-    initializePaymentStatus(testAddress, 0.001);
+    await initializePaymentStatus(testAddress, 0.001);
 
     // Make API request
     const request = new NextRequest(
       `http://localhost:3000/api/payment-status/${testAddress}`
     );
     const response = await GET(request, {
-      params: { address: testAddress },
+      params: Promise.resolve({ address: testAddress }),
     });
 
     expect(response.status).toBe(200);
@@ -52,21 +52,21 @@ describe("Payment Status API Route - Integration Tests", () => {
 
   it("should reflect store updates in API responses", async () => {
     // Initialize payment
-    initializePaymentStatus(testAddress, 0.001);
+    await initializePaymentStatus(testAddress, 0.001);
 
     // Get initial status
     let request = new NextRequest(
       `http://localhost:3000/api/payment-status/${testAddress}`
     );
     let response = await GET(request, {
-      params: { address: testAddress },
+      params: Promise.resolve({ address: testAddress }),
     });
     let data = await response.json();
     
     expect(data.status).toBe(PaymentStatus.AWAITING_PAYMENT);
 
     // Update status in store (simulating webhook update)
-    updatePaymentStatus(
+    await updatePaymentStatus(
       testAddress,
       PaymentStatus.PAYMENT_DETECTED,
       testTransactionHash,
@@ -80,7 +80,7 @@ describe("Payment Status API Route - Integration Tests", () => {
       `http://localhost:3000/api/payment-status/${testAddress}`
     );
     response = await GET(request, {
-      params: { address: testAddress },
+      params: Promise.resolve({ address: testAddress }),
     });
     data = await response.json();
     
@@ -89,7 +89,7 @@ describe("Payment Status API Route - Integration Tests", () => {
     expect(data.transactionId).toBe(testTransactionHash);
 
     // Update to confirmed
-    updatePaymentStatus(
+    await updatePaymentStatus(
       testAddress,
       PaymentStatus.CONFIRMED,
       testTransactionHash,
@@ -102,7 +102,7 @@ describe("Payment Status API Route - Integration Tests", () => {
       `http://localhost:3000/api/payment-status/${testAddress}`
     );
     response = await GET(request, {
-      params: { address: testAddress },
+      params: Promise.resolve({ address: testAddress }),
     });
     data = await response.json();
     
@@ -113,10 +113,10 @@ describe("Payment Status API Route - Integration Tests", () => {
 
   it("should handle double-spend error scenarios", async () => {
     // Initialize payment
-    initializePaymentStatus(testAddress, 0.001);
+    await initializePaymentStatus(testAddress, 0.001);
 
     // Update with double-spend error
-    updatePaymentStatus(
+    await updatePaymentStatus(
       testAddress,
       PaymentStatus.ERROR,
       testTransactionHash,
@@ -130,7 +130,7 @@ describe("Payment Status API Route - Integration Tests", () => {
       `http://localhost:3000/api/payment-status/${testAddress}`
     );
     const response = await GET(request, {
-      params: { address: testAddress },
+      params: Promise.resolve({ address: testAddress }),
     });
     const data = await response.json();
     
@@ -147,7 +147,7 @@ describe("Payment Status API Route - Integration Tests", () => {
       `http://localhost:3000/api/payment-status/${nonExistentAddress}`
     );
     const response = await GET(request, {
-      params: { address: nonExistentAddress },
+      params: Promise.resolve({ address: nonExistentAddress }),
     });
     
     expect(response.status).toBe(404);
@@ -165,12 +165,12 @@ describe("Payment Status API Route - Integration Tests", () => {
     ];
 
     // Initialize all addresses
-    addresses.forEach((addr, index) => {
-      initializePaymentStatus(addr, 0.001 * (index + 1));
-    });
+    for (const [index, addr] of addresses.entries()) {
+      await initializePaymentStatus(addr, 0.001 * (index + 1));
+    }
 
     // Update some statuses
-    updatePaymentStatus(
+    await updatePaymentStatus(
       addresses[0],
       PaymentStatus.PAYMENT_DETECTED,
       "tx1",
@@ -178,7 +178,7 @@ describe("Payment Status API Route - Integration Tests", () => {
       100000
     );
     
-    updatePaymentStatus(
+    await updatePaymentStatus(
       addresses[1],
       PaymentStatus.CONFIRMED,
       "tx2",
@@ -191,7 +191,7 @@ describe("Payment Status API Route - Integration Tests", () => {
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${addr}`
       );
-      return GET(request, { params: { address: addr } });
+      return GET(request, { params: Promise.resolve({ address: addr }) });
     });
 
     const responses = await Promise.all(requests);
@@ -212,14 +212,14 @@ describe("Payment Status API Route - Integration Tests", () => {
 
   it("should preserve lastUpdated timestamp from store", async () => {
     const beforeInit = Date.now();
-    initializePaymentStatus(testAddress, 0.001);
+    await initializePaymentStatus(testAddress, 0.001);
     const afterInit = Date.now();
 
     const request = new NextRequest(
       `http://localhost:3000/api/payment-status/${testAddress}`
     );
     const response = await GET(request, {
-      params: { address: testAddress },
+      params: Promise.resolve({ address: testAddress }),
     });
     const data = await response.json();
     
@@ -230,7 +230,7 @@ describe("Payment Status API Route - Integration Tests", () => {
     await new Promise(resolve => setTimeout(resolve, 10));
     
     const beforeUpdate = Date.now();
-    updatePaymentStatus(
+    await updatePaymentStatus(
       testAddress,
       PaymentStatus.PAYMENT_DETECTED,
       testTransactionHash,
@@ -240,7 +240,7 @@ describe("Payment Status API Route - Integration Tests", () => {
     const afterUpdate = Date.now();
 
     const response2 = await GET(request, {
-      params: { address: testAddress },
+      params: Promise.resolve({ address: testAddress }),
     });
     const data2 = await response2.json();
     

@@ -42,14 +42,14 @@ describe("Payment Status API Route", () => {
         lastUpdated: Date.now(),
       };
 
-      (getPaymentStatus as jest.Mock).mockReturnValue(mockStatus);
+      (getPaymentStatus as jest.Mock).mockResolvedValue(mockStatus);
 
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${validNativeSegwitAddress}`
       );
 
       const response = await GET(request, {
-        params: { address: validNativeSegwitAddress },
+        params: Promise.resolve({ address: validNativeSegwitAddress }),
       });
 
       expect(response.status).toBe(200);
@@ -60,14 +60,14 @@ describe("Payment Status API Route", () => {
     });
 
     it("should return 404 for non-existent payment status", async () => {
-      (getPaymentStatus as jest.Mock).mockReturnValue(null);
+      (getPaymentStatus as jest.Mock).mockResolvedValue(null);
 
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${validNativeSegwitAddress}`
       );
 
       const response = await GET(request, {
-        params: { address: validNativeSegwitAddress },
+        params: Promise.resolve({ address: validNativeSegwitAddress }),
       });
 
       expect(response.status).toBe(404);
@@ -84,7 +84,7 @@ describe("Payment Status API Route", () => {
       );
 
       const response = await GET(request, {
-        params: { address: "" },
+        params: Promise.resolve({ address: "" }),
       });
 
       expect(response.status).toBe(400);
@@ -99,7 +99,7 @@ describe("Payment Status API Route", () => {
       );
 
       const response = await GET(request, {
-        params: { address: invalidAddress },
+        params: Promise.resolve({ address: invalidAddress }),
       });
 
       expect(response.status).toBe(400);
@@ -115,7 +115,7 @@ describe("Payment Status API Route", () => {
       );
 
       const response = await GET(request, {
-        params: { address: mainnetAddress },
+        params: Promise.resolve({ address: mainnetAddress }),
       });
 
       expect(response.status).toBe(400);
@@ -130,14 +130,14 @@ describe("Payment Status API Route", () => {
         lastUpdated: Date.now(),
       };
 
-      (getPaymentStatus as jest.Mock).mockReturnValue(mockStatus);
+      (getPaymentStatus as jest.Mock).mockResolvedValue(mockStatus);
 
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${validLegacyAddress}`
       );
 
       const response = await GET(request, {
-        params: { address: validLegacyAddress },
+        params: Promise.resolve({ address: validLegacyAddress }),
       });
 
       expect(response.status).toBe(200);
@@ -152,14 +152,14 @@ describe("Payment Status API Route", () => {
         lastUpdated: Date.now(),
       };
 
-      (getPaymentStatus as jest.Mock).mockReturnValue(mockStatus);
+      (getPaymentStatus as jest.Mock).mockResolvedValue(mockStatus);
 
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${validP2SHAddress}`
       );
 
       const response = await GET(request, {
-        params: { address: validP2SHAddress },
+        params: Promise.resolve({ address: validP2SHAddress }),
       });
 
       expect(response.status).toBe(200);
@@ -177,14 +177,14 @@ describe("Payment Status API Route", () => {
         lastUpdated: Date.now(),
       };
 
-      (getPaymentStatus as jest.Mock).mockReturnValue(mockStatus);
+      (getPaymentStatus as jest.Mock).mockResolvedValue(mockStatus);
 
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${validNativeSegwitAddress}`
       );
 
       const response = await GET(request, {
-        params: { address: validNativeSegwitAddress },
+        params: Promise.resolve({ address: validNativeSegwitAddress }),
       });
 
       expect(response.status).toBe(200);
@@ -195,16 +195,14 @@ describe("Payment Status API Route", () => {
     });
 
     it("should handle store errors gracefully", async () => {
-      (getPaymentStatus as jest.Mock).mockImplementation(() => {
-        throw new Error("Store error");
-      });
+      (getPaymentStatus as jest.Mock).mockRejectedValue(new Error("Store error"));
 
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${validNativeSegwitAddress}`
       );
 
       const response = await GET(request, {
-        params: { address: validNativeSegwitAddress },
+        params: Promise.resolve({ address: validNativeSegwitAddress }),
       });
 
       expect(response.status).toBe(500);
@@ -221,14 +219,14 @@ describe("Payment Status API Route", () => {
         lastUpdated: Date.now(),
       };
 
-      (getPaymentStatus as jest.Mock).mockReturnValue(mockStatus);
+      (getPaymentStatus as jest.Mock).mockResolvedValue(mockStatus);
 
       const request = new NextRequest(
         `http://localhost:3000/api/payment-status/${validNativeSegwitAddress}`
       );
 
       const response = await GET(request, {
-        params: { address: validNativeSegwitAddress },
+        params: Promise.resolve({ address: validNativeSegwitAddress }),
       });
 
       expect(response.status).toBe(200);
@@ -277,7 +275,7 @@ describe("Payment Status API Route", () => {
       let request = new NextRequest(
         `http://localhost:3000/api/payment-status/${address}`
       );
-      let response = await GET(request, { params: { address } });
+      let response = await GET(request, { params: Promise.resolve({ address }) });
       let data = await response.json();
 
       expect(data.status).toBe(PaymentStatus.AWAITING_PAYMENT);
@@ -294,7 +292,7 @@ describe("Payment Status API Route", () => {
       request = new NextRequest(
         `http://localhost:3000/api/payment-status/${address}`
       );
-      response = await GET(request, { params: { address } });
+      response = await GET(request, { params: Promise.resolve({ address }) });
       data = await response.json();
 
       expect(data.status).toBe(PaymentStatus.PAYMENT_DETECTED);
@@ -312,7 +310,7 @@ describe("Payment Status API Route", () => {
       request = new NextRequest(
         `http://localhost:3000/api/payment-status/${address}`
       );
-      response = await GET(request, { params: { address } });
+      response = await GET(request, { params: Promise.resolve({ address }) });
       data = await response.json();
 
       expect(data.status).toBe(PaymentStatus.CONFIRMED);

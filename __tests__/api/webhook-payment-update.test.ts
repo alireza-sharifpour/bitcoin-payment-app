@@ -28,8 +28,8 @@ afterAll(() => {
   process.env = originalEnv;
 });
 
-beforeEach(() => {
-  clearAllPaymentStatuses();
+beforeEach(async () => {
+  await clearAllPaymentStatuses();
 });
 
 describe("Webhook Payment Update API Route", () => {
@@ -40,7 +40,7 @@ describe("Webhook Payment Update API Route", () => {
   describe("POST handler", () => {
     it("should update payment status for unconfirmed transaction", async () => {
       // Initialize payment status
-      initializePaymentStatus(testAddress, 0.001);
+      await initializePaymentStatus(testAddress, 0.001);
 
       const webhookPayload = {
         event: "unconfirmed-tx",
@@ -67,7 +67,7 @@ describe("Webhook Payment Update API Route", () => {
       expect(data.message).toBe("Webhook processed successfully");
 
       // Verify payment status was updated
-      const status = getPaymentStatus(testAddress);
+      const status = await getPaymentStatus(testAddress);
       expect(status).not.toBeNull();
       expect(status?.status).toBe(PaymentStatus.PAYMENT_DETECTED);
       expect(status?.transactionId).toBe(testTransactionHash);
@@ -76,7 +76,7 @@ describe("Webhook Payment Update API Route", () => {
 
     it("should update payment status for confirmed transaction", async () => {
       // Initialize payment status
-      initializePaymentStatus(testAddress, 0.001);
+      await initializePaymentStatus(testAddress, 0.001);
 
       const webhookPayload = {
         event: "confirmed-tx",
@@ -101,13 +101,13 @@ describe("Webhook Payment Update API Route", () => {
       expect(response.status).toBe(200);
 
       // Verify payment status was updated
-      const status = getPaymentStatus(testAddress);
+      const status = await getPaymentStatus(testAddress);
       expect(status?.status).toBe(PaymentStatus.CONFIRMED);
       expect(status?.confirmations).toBe(3);
     });
 
     it("should handle double-spend transactions", async () => {
-      initializePaymentStatus(testAddress, 0.001);
+      await initializePaymentStatus(testAddress, 0.001);
 
       const webhookPayload = {
         event: "double-spend-tx",
@@ -131,7 +131,7 @@ describe("Webhook Payment Update API Route", () => {
       expect(response.status).toBe(200);
 
       // Verify payment status was updated to ERROR
-      const status = getPaymentStatus(testAddress);
+      const status = await getPaymentStatus(testAddress);
       expect(status?.status).toBe(PaymentStatus.ERROR);
       expect(status?.errorMessage).toBe("Double spend detected");
     });
@@ -161,7 +161,7 @@ describe("Webhook Payment Update API Route", () => {
       expect(response.status).toBe(200);
 
       // Should create new payment status
-      const status = getPaymentStatus(testAddress);
+      const status = await getPaymentStatus(testAddress);
       expect(status).not.toBeNull();
       expect(status?.status).toBe(PaymentStatus.PAYMENT_DETECTED);
     });
@@ -230,7 +230,7 @@ describe("Webhook Payment Update API Route", () => {
 
     it("should update existing payment from PAYMENT_DETECTED to CONFIRMED", async () => {
       // Initialize as payment detected
-      initializePaymentStatus(testAddress, 0.001);
+      await initializePaymentStatus(testAddress, 0.001);
 
       // First webhook - unconfirmed
       const unconfirmedPayload = {
@@ -254,7 +254,7 @@ describe("Webhook Payment Update API Route", () => {
       await POST(request);
 
       // Verify initial status
-      let status = getPaymentStatus(testAddress);
+      let status = await getPaymentStatus(testAddress);
       expect(status?.status).toBe(PaymentStatus.PAYMENT_DETECTED);
 
       // Second webhook - confirmed
@@ -278,7 +278,7 @@ describe("Webhook Payment Update API Route", () => {
       await POST(request);
 
       // Verify updated status
-      status = getPaymentStatus(testAddress);
+      status = await getPaymentStatus(testAddress);
       expect(status?.status).toBe(PaymentStatus.CONFIRMED);
       expect(status?.confirmations).toBe(1);
     });
