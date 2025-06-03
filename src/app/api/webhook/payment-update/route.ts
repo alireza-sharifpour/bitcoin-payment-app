@@ -18,10 +18,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  webhookPayloadSchema,
-  type WebhookPayload,
-} from "@/lib/validation/payment";
+import { BlockcypherWebhookPayloadSchema } from "@/lib/validation/webhook";
 
 /**
  * POST handler for webhook payment updates
@@ -34,100 +31,82 @@ import {
  * @param request - Next.js request object containing webhook payload
  * @returns NextResponse with appropriate status and message
  */
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  let payload;
   try {
-    // Log incoming webhook request for debugging
-    console.log(
-      `[WEBHOOK] Received webhook request at ${new Date().toISOString()}`
-    );
-    console.log(`[WEBHOOK] Request URL: ${request.url}`);
-    console.log(
-      `[WEBHOOK] Request headers:`,
-      Object.fromEntries(request.headers.entries())
-    );
-
-    // Parse the incoming JSON payload
-    let payload: unknown;
-    try {
-      payload = await request.json();
-      console.log(`[WEBHOOK] Raw payload:`, payload);
-    } catch (parseError) {
-      console.error(`[WEBHOOK] Failed to parse JSON payload:`, parseError);
-      return NextResponse.json(
-        {
-          error: "Invalid JSON payload",
-          message: "Request body must be valid JSON",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate the webhook payload structure
-    let validatedPayload: WebhookPayload;
-    try {
-      validatedPayload = webhookPayloadSchema.parse(payload);
-      console.log(`[WEBHOOK] Validated payload:`, validatedPayload);
-    } catch (validationError) {
-      console.error(`[WEBHOOK] Payload validation failed:`, validationError);
-      return NextResponse.json(
-        {
-          error: "Invalid webhook payload",
-          message: "Payload does not match expected webhook schema",
-          details:
-            validationError instanceof Error
-              ? validationError.message
-              : "Unknown validation error",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Log the validated webhook event details
-    console.log(`[WEBHOOK] Processing webhook event:`, {
-      event: validatedPayload.event,
-      address: validatedPayload.address,
-      hash: validatedPayload.hash,
-      confirmations: validatedPayload.confirmations,
-      value: validatedPayload.value,
-      doubleSpend: validatedPayload.double_spend,
-    });
-
-    // TODO: In future tasks, this is where we'll:
-    // - Update in-memory payment status store
-    // - Trigger any necessary business logic
-    // - Send notifications to connected clients
-    // - Update database records
-
-    // For Task 5.1.1, we just need to acknowledge the webhook
-    console.log(
-      `[WEBHOOK] Successfully processed webhook for address: ${validatedPayload.address}`
-    );
-
-    // Return success response to BlockCypher
-    // BlockCypher expects a 2xx status code to consider the webhook delivered
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Webhook received and processed successfully",
-        timestamp: new Date().toISOString(),
-        address: validatedPayload.address,
-        event: validatedPayload.event,
-      },
-      { status: 200 }
-    );
+    payload = await req.json();
   } catch (error) {
-    // Handle any unexpected errors
-    console.error(`[WEBHOOK] Unexpected error processing webhook:`, error);
+    console.error("[WEBHOOK_ERROR] Error parsing webhook JSON payload:", error);
+    return NextResponse.json(
+      { error: "Invalid JSON payload" },
+      { status: 400 }
+    );
+  }
 
+  const validationResult = BlockcypherWebhookPayloadSchema.safeParse(payload);
+
+  if (!validationResult.success) {
+    console.error(
+      "[WEBHOOK_ERROR] Webhook payload validation failed:",
+      validationResult.error.errors
+    );
     return NextResponse.json(
       {
-        error: "Internal server error",
-        message: "An unexpected error occurred while processing the webhook",
-        timestamp: new Date().toISOString(),
+        error: "Invalid payload structure",
+        details: validationResult.error.format(),
       },
+      { status: 400 }
+    );
+  }
+
+  const validatedPayload = validationResult.data;
+
+  const expectedToken = process.env.BLOCKCYPHER_TOKEN;
+
+  if (!expectedToken) {
+    console.error(
+      "[WEBHOOK_ERROR] BLOCKCYPHER_TOKEN is not set in environment variables."
+    );
+    // This is a server configuration error and should be addressed by the administrator.
+    return NextResponse.json(
+      { error: "Internal server error: Webhook configuration missing" },
       { status: 500 }
     );
   }
+
+  if (validatedPayload.token !== expectedToken) {
+    console.warn(
+      "[WEBHOOK_WARN] Webhook token mismatch. Unauthorized access attempt."
+    );
+    return NextResponse.json(
+      { error: "Unauthorized: Invalid token" },
+      { status: 403 }
+    );
+  }
+
+  // Payload structure and authenticity (token) are now validated.
+  // The next step (Task 5.1.3) will be to parse the transaction data from validatedPayload
+  // and then (Task 5.2.2) update the payment status in the in-memory store.
+
+  // Example of what might happen next (pseudo-code for future tasks):
+  // const { event, hash, confirmations, address, outputs } = validatedPayload;
+  // const paymentAddress = address; // Or derived from outputs if not directly available
+  // if (paymentAddress) {
+  //   updatePaymentStatusInStore(paymentAddress, validatedPayload);
+  // } else {
+  //   console.warn('[WEBHOOK_WARN] Could not determine payment address from webhook.');
+  // }
+
+  console.log(
+    "[WEBHOOK_INFO] Webhook received and validated successfully for event:",
+    validatedPayload.event,
+    "tx_hash:",
+    validatedPayload.hash
+  );
+  return NextResponse.json(
+    { message: "Webhook received and validated" },
+    { status: 200 }
+  );
 }
 
 /**
@@ -141,7 +120,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   console.log(
-    `[WEBHOOK] Health check request received at ${new Date().toISOString()}`
+    `[WEBHOOK] Health check request received at ${new Date().toISOString()} from URL: ${
+      request.url
+    }`
   );
 
   return NextResponse.json(
