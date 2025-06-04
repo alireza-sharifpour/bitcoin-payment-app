@@ -172,20 +172,8 @@ export async function updatePaymentStatus(
       "[PAYMENT_STORE] Attempted to update non-existent payment status for address:",
       address
     );
-    // Initialize with the update data if not exists
-    const now = Date.now();
-    store.set(address, {
-      address,
-      status,
-      transactionId,
-      confirmations,
-      receivedAmount,
-      confidence,
-      isDoubleSpend,
-      createdAt: now,
-      lastUpdated: now,
-    });
-    await savePaymentStatuses(store);
+    // Do NOT create new entries for unknown addresses
+    // Only update addresses that were initialized by createPaymentRequest
     return;
   }
 
@@ -220,6 +208,17 @@ export async function updatePaymentStatus(
     receivedAmount,
     isDoubleSpend,
   });
+}
+
+/**
+ * Check if an address is being monitored for payments
+ * 
+ * @param address - Bitcoin testnet address
+ * @returns True if the address exists in the store
+ */
+export async function isAddressMonitored(address: string): Promise<boolean> {
+  const store = await loadPaymentStatuses();
+  return store.has(address);
 }
 
 /**
