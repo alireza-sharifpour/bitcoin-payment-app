@@ -16,7 +16,7 @@ import {
   generateBip21Uri,
 } from "@/lib/validation/payment";
 import { generateWalletAddress } from "@/lib/bitcoin/wallet";
-import { registerPaymentWebhook } from "@/lib/api/blockcypher";
+import { registerPaymentWebhook, BlockcypherRateLimitError } from "@/lib/api/blockcypher";
 import { initializePaymentStatus } from "@/lib/store/payment-status";
 
 /**
@@ -144,7 +144,13 @@ export async function createPaymentRequest(
         console.log(`Webhooks registered successfully with IDs: ${webhookIds.join(', ')}`);
       }
     } catch (webhookError) {
-      // Log webhook registration failure but don't fail the entire request
+      // Re-throw rate limit errors as they indicate we can't proceed
+      if (webhookError instanceof BlockcypherRateLimitError) {
+        console.error("BlockCypher rate limit exceeded:", webhookError);
+        throw webhookError;
+      }
+      
+      // Log other webhook registration failures but don't fail the entire request
       console.warn(
         "Webhook registration failed (continuing without webhook):",
         webhookError
@@ -176,6 +182,14 @@ export async function createPaymentRequest(
   } catch (error) {
     // Handle unexpected errors
     console.error("Error in createPaymentRequest:", error);
+
+    // Handle rate limit errors specifically
+    if (error instanceof BlockcypherRateLimitError) {
+      return {
+        success: false,
+        error: "Unable to process payment request: BlockCypher API rate limit exceeded. Please try again in a few minutes.",
+      };
+    }
 
     return {
       success: false,
