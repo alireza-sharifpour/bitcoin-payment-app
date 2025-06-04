@@ -88,34 +88,46 @@ export function mapEventToPaymentStatus(
 }
 
 /**
- * Extracts the target address from webhook payload
+ * Extracts all receiving addresses from webhook payload outputs
  *
- * Priority:
- * 1. Direct address field in payload
- * 2. Address from transaction outputs
+ * For payment monitoring, we need to find which of our registered addresses
+ * received funds in this transaction.
  *
  * @param payload - Validated BlockCypher webhook payload
- * @returns Bitcoin address or null if not found
+ * @returns Array of addresses that received funds in this transaction
  */
-export function extractAddress(
+export function extractReceivingAddresses(
   payload: BlockcypherWebhookPayload
-): string | null {
-  // First, try the direct address field
+): string[] {
+  const addresses: string[] = [];
+
+  // If there's a direct address field and it's the recipient, include it
   if (payload.address) {
-    return payload.address as string;
+    addresses.push(payload.address as string);
   }
 
-  // If no direct address, try to extract from outputs
+  // Extract all addresses from outputs (recipients of the transaction)
   if (payload.outputs && payload.outputs.length > 0) {
-    // Look for the first output with addresses
     for (const output of payload.outputs) {
       if (output.addresses && output.addresses.length > 0) {
-        return output.addresses[0]; // Return first address
+        addresses.push(...output.addresses);
       }
     }
   }
 
-  return null;
+  // Return unique addresses
+  return [...new Set(addresses)];
+}
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use extractReceivingAddresses instead
+ */
+export function extractAddress(
+  payload: BlockcypherWebhookPayload
+): string | null {
+  const addresses = extractReceivingAddresses(payload);
+  return addresses.length > 0 ? addresses[0] : null;
 }
 
 /**
@@ -202,6 +214,76 @@ export function parseWebhookTransaction(
   });
 
   return parsedData;
+}
+
+/**
+ * Parses webhook transaction data for multiple receiving addresses
+ * 
+ * This function extracts transaction data for all addresses that received
+ * funds in the transaction, allowing us to update payment status for any
+ * monitored addresses.
+ *
+ * @param payload - Validated BlockCypher webhook payload
+ * @param eventType - Event type from webhook headers
+ * @returns Array of parsed transaction data for each receiving address
+ */
+export function parseWebhookTransactionForAllAddresses(
+  payload: BlockcypherWebhookPayload,
+  eventType: string
+): ParsedTransactionData[] {
+  const addresses = extractReceivingAddresses(payload);
+
+  if (addresses.length === 0) {
+    console.warn(
+      "[WEBHOOK_PARSER] No receiving addresses found in webhook payload"
+    );
+    return [];
+  }
+
+  const confirmations = payload.confirmations ?? 0;
+  const isDoubleSpend = payload.double_spend ?? false;
+  const status = mapEventToPaymentStatus(
+    eventType,
+    confirmations,
+    isDoubleSpend
+  );
+
+  const parsedDataArray: ParsedTransactionData[] = [];
+
+  // Create parsed data for each receiving address
+  for (const address of addresses) {
+    const totalAmount = calculateAmountReceived(payload, address);
+    
+    // Skip addresses that didn't receive any funds
+    if (totalAmount === undefined || totalAmount === 0) {
+      continue;
+    }
+
+    const parsedData: ParsedTransactionData = {
+      transactionHash: payload.hash,
+      confirmations,
+      address,
+      status,
+      totalAmount,
+      fees: payload.fees,
+      confidence: payload.confidence as number,
+      isDoubleSpend,
+      lastUpdated: Date.now(),
+    };
+
+    console.log("[WEBHOOK_PARSER] Parsed transaction data for address:", {
+      transactionHash: parsedData.transactionHash,
+      address: parsedData.address,
+      status: parsedData.status,
+      confirmations: parsedData.confirmations,
+      totalAmount: parsedData.totalAmount,
+      event: eventType,
+    });
+
+    parsedDataArray.push(parsedData);
+  }
+
+  return parsedDataArray;
 }
 
 /**
