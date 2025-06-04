@@ -42,7 +42,10 @@ const mockIsValidTestnetAddress = isValidTestnetAddress as jest.MockedFunction<
 
 // Mock fetch for controlled testing
 const mockFetch = jest.fn();
-global.fetch = mockFetch;
+global.fetch = mockFetch as unknown as typeof fetch;
+
+// Set up console.error mock to prevent noise in test output
+const originalConsoleError = console.error;
 
 // Mock environment variable
 const ORIGINAL_ENV = process.env;
@@ -52,6 +55,9 @@ describe("Blockcypher API Client", () => {
     jest.resetAllMocks();
     jest.clearAllTimers();
     process.env = { ...ORIGINAL_ENV };
+
+    // Mock console.error to suppress expected error messages
+    console.error = jest.fn();
 
     // Set up default mock for address validation
     mockIsValidTestnetAddress.mockImplementation((address: string) => {
@@ -67,6 +73,11 @@ describe("Blockcypher API Client", () => {
         text: async () => JSON.stringify({}),
       })
     );
+  });
+
+  afterEach(() => {
+    // Restore console.error
+    console.error = originalConsoleError;
   });
 
   afterAll(() => {
@@ -134,9 +145,12 @@ describe("Blockcypher API Client", () => {
     });
 
     it("should handle connection failures gracefully", async () => {
-      // Mock network error - reset and override the default mock
-      mockFetch.mockReset();
-      mockFetch.mockRejectedValueOnce(new Error("No response received from server"));
+      // Mock network error for all retry attempts (3 attempts by default)
+      mockFetch.mockClear();
+      mockFetch
+        .mockRejectedValueOnce(new Error("No response received from server"))
+        .mockRejectedValueOnce(new Error("No response received from server"))
+        .mockRejectedValueOnce(new Error("No response received from server"));
 
       const client = new BlockcypherClient();
       const isConnected = await client.testConnection();
@@ -145,7 +159,7 @@ describe("Blockcypher API Client", () => {
     });
 
     it("should handle API errors gracefully", async () => {
-      // Mock API error response
+      // Mock API error response - override just the next call
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
