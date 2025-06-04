@@ -27,6 +27,8 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
     aggressivePolling: true, // More frequent polling for awaiting payments
   });
 
+  const testnetExplorerUrl = process.env.NEXT_PUBLIC_TESTNET_EXPLORER_ADDRESS;
+
   // Handle loading state
   if (isLoading || (!paymentStatus && !isError)) {
     return (
@@ -134,7 +136,7 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
                   <div className="text-xs text-muted-foreground">
                     <p className="mb-1">Transaction:</p>
                     <a
-                      href={`https://mempool.space/testnet/tx/${paymentStatus.transactionId}`}
+                      href={`${testnetExplorerUrl}${paymentStatus.transactionId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-700 underline break-all"
@@ -181,7 +183,7 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
                   <div className="text-xs text-muted-foreground">
                     <p className="mb-1">Transaction:</p>
                     <a
-                      href={`https://mempool.space/testnet/tx/${paymentStatus.transactionId}`}
+                      href={`${testnetExplorerUrl}${paymentStatus.transactionId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-700 underline break-all"
