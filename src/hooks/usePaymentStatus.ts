@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { PaymentStatusResponse } from "../../types"; // Updated path to correct types location
+import { PaymentStatusResponse, PaymentStatus } from "../../types"; // Updated path to correct types location
 
 /**
  * Fetches the payment status for a given Bitcoin address.
@@ -76,9 +76,9 @@ interface PaymentStatusOptions {
  *
  * @example
  * // With polling fallback enabled
- * const { data, isLoading, refetch } = usePaymentStatus("tb1...", { 
+ * const { data, isLoading, refetch } = usePaymentStatus("tb1...", {
  *   enablePolling: true,
- *   refetchInterval: 15000 
+ *   refetchInterval: 15000
  * });
  */
 export function usePaymentStatus(
@@ -120,28 +120,33 @@ export function usePaymentStatus(
 
     // Refetch interval: Configurable polling as fallback mechanism
     // Primary mechanism is manual refetch, this serves as backup
-    refetchInterval: enablePolling ? (context) => {
-      const { state } = context;
-      
-      // Don't poll if there's an error or no data
-      if (state.error || !state.data) {
-        return false;
-      }
+    refetchInterval: enablePolling
+      ? (context) => {
+          const { state } = context;
 
-      // Adjust polling based on payment status and aggressive polling setting
-      if (aggressivePolling && state.data.status === "AWAITING_PAYMENT") {
-        // More frequent polling while awaiting payment
-        return Math.min(refetchInterval, 5000); // Cap at 5 seconds for aggressive mode
-      }
+          // Don't poll if there's an error or no data
+          if (state.error || !state.data) {
+            return false;
+          }
 
-      // Stop polling once payment is confirmed
-      if (state.data.status === "CONFIRMED") {
-        return false;
-      }
+          // Adjust polling based on payment status and aggressive polling setting
+          if (
+            aggressivePolling &&
+            state.data.status === PaymentStatus.AWAITING_PAYMENT
+          ) {
+            // More frequent polling while awaiting payment
+            return Math.min(refetchInterval, 5000); // Cap at 5 seconds for aggressive mode
+          }
 
-      // Use configured interval for other states
-      return refetchInterval;
-    } : false,
+          // Stop polling once payment is confirmed
+          if (state.data.status === PaymentStatus.CONFIRMED) {
+            return false;
+          }
+
+          // Use configured interval for other states
+          return refetchInterval;
+        }
+      : false,
 
     // Refetch on window focus is generally good for payment status
     refetchOnWindowFocus: true,
