@@ -16,7 +16,8 @@ import {
   generateBip21Uri,
 } from "@/lib/validation/payment";
 import { generateWalletAddress } from "@/lib/bitcoin/wallet";
-import { registerPaymentWebhook } from "@/lib/api/blockcypher";
+import { registerPaymentWebhook, BlockcypherRateLimitError } from "@/lib/api/blockcypher";
+import { initializePaymentStatus } from "@/lib/store/payment-status";
 
 /**
  * Server Action Response Types
@@ -138,11 +139,18 @@ export async function createPaymentRequest(
           `Registering webhook for address ${address} at ${webhookUrl}`
         );
 
-        webhookId = await registerPaymentWebhook(address, webhookUrl);
-        console.log(`Webhook registered successfully with ID: ${webhookId}`);
+        const webhookIds = await registerPaymentWebhook(address, webhookUrl);
+        webhookId = webhookIds[0]; // Store first webhook ID for compatibility
+        console.log(`Webhooks registered successfully with IDs: ${webhookIds.join(', ')}`);
       }
     } catch (webhookError) {
-      // Log webhook registration failure but don't fail the entire request
+      // Re-throw rate limit errors as they indicate we can't proceed
+      if (webhookError instanceof BlockcypherRateLimitError) {
+        console.error("BlockCypher rate limit exceeded:", webhookError);
+        throw webhookError;
+      }
+      
+      // Log other webhook registration failures but don't fail the entire request
       console.warn(
         "Webhook registration failed (continuing without webhook):",
         webhookError
@@ -153,6 +161,9 @@ export async function createPaymentRequest(
       // but users will need to check payment status manually rather than
       // receiving automatic webhook notifications
     }
+
+    // Initialize payment status in the store
+    await initializePaymentStatus(address, amount, webhookId);
 
     // Create request timestamp
     const requestTimestamp = new Date();
@@ -171,6 +182,14 @@ export async function createPaymentRequest(
   } catch (error) {
     // Handle unexpected errors
     console.error("Error in createPaymentRequest:", error);
+
+    // Handle rate limit errors specifically
+    if (error instanceof BlockcypherRateLimitError) {
+      return {
+        success: false,
+        error: "Unable to process payment request: BlockCypher API rate limit exceeded. Please try again in a few minutes.",
+      };
+    }
 
     return {
       success: false,

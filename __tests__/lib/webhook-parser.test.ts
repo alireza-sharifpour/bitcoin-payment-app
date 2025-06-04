@@ -11,9 +11,9 @@ import {
   extractAddress,
   calculateAmountReceived,
   isValidTransaction,
-} from "../webhook-parser";
-import { PaymentStatus } from "../../../../types";
-import type { BlockcypherWebhookPayload } from "@/lib/validation/webhook";
+} from "../../src/lib/utils/webhook-parser";
+import { PaymentStatus } from "../../types";
+import type { BlockcypherWebhookPayload } from "../../src/lib/validation/webhook";
 
 describe("webhook-parser", () => {
   const mockAddress = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx";
@@ -186,7 +186,7 @@ describe("webhook-parser", () => {
 
   describe("parseWebhookTransaction", () => {
     it("should parse complete webhook payload correctly", () => {
-      const payload: BlockcypherWebhookPayload = {
+      const payload: Partial<BlockcypherWebhookPayload> = {
         token: "test-token",
         event: "unconfirmed-tx",
         hash: mockTxHash,
@@ -198,7 +198,10 @@ describe("webhook-parser", () => {
         double_spend: false,
       };
 
-      const result = parseWebhookTransaction(payload);
+      const result = parseWebhookTransaction(
+        payload as BlockcypherWebhookPayload,
+        mockAddress
+      );
 
       expect(result).not.toBeNull();
       expect(result!.transactionHash).toBe(mockTxHash);
@@ -212,7 +215,7 @@ describe("webhook-parser", () => {
     });
 
     it("should parse confirmed transaction correctly", () => {
-      const payload: BlockcypherWebhookPayload = {
+      const payload: Partial<BlockcypherWebhookPayload> = {
         token: "test-token",
         event: "confirmed-tx",
         hash: mockTxHash,
@@ -221,7 +224,10 @@ describe("webhook-parser", () => {
         total: 50000,
       };
 
-      const result = parseWebhookTransaction(payload);
+      const result = parseWebhookTransaction(
+        payload as BlockcypherWebhookPayload,
+        mockAddress
+      );
 
       expect(result).not.toBeNull();
       expect(result!.status).toBe(PaymentStatus.CONFIRMED);
@@ -229,13 +235,16 @@ describe("webhook-parser", () => {
     });
 
     it("should return null when address cannot be extracted", () => {
-      const payload: BlockcypherWebhookPayload = {
+      const payload: Partial<BlockcypherWebhookPayload> = {
         token: "test-token",
         event: "unconfirmed-tx",
         hash: mockTxHash,
       };
 
-      const result = parseWebhookTransaction(payload);
+      const result = parseWebhookTransaction(
+        payload as BlockcypherWebhookPayload,
+        mockAddress
+      );
       expect(result).toBeNull();
     });
   });

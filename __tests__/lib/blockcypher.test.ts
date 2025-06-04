@@ -42,7 +42,10 @@ const mockIsValidTestnetAddress = isValidTestnetAddress as jest.MockedFunction<
 
 // Mock fetch for controlled testing
 const mockFetch = jest.fn();
-global.fetch = mockFetch;
+global.fetch = mockFetch as unknown as typeof fetch;
+
+// Set up console.error mock to prevent noise in test output
+const originalConsoleError = console.error;
 
 // Mock environment variable
 const ORIGINAL_ENV = process.env;
@@ -52,6 +55,9 @@ describe("Blockcypher API Client", () => {
     jest.resetAllMocks();
     jest.clearAllTimers();
     process.env = { ...ORIGINAL_ENV };
+
+    // Mock console.error to suppress expected error messages
+    console.error = jest.fn();
 
     // Set up default mock for address validation
     mockIsValidTestnetAddress.mockImplementation((address: string) => {
@@ -67,6 +73,11 @@ describe("Blockcypher API Client", () => {
         text: async () => JSON.stringify({}),
       })
     );
+  });
+
+  afterEach(() => {
+    // Restore console.error
+    console.error = originalConsoleError;
   });
 
   afterAll(() => {
@@ -134,9 +145,12 @@ describe("Blockcypher API Client", () => {
     });
 
     it("should handle connection failures gracefully", async () => {
-      // Mock network error - reset and override the default mock
-      mockFetch.mockReset();
-      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+      // Mock network error for all retry attempts (3 attempts by default)
+      mockFetch.mockClear();
+      mockFetch
+        .mockRejectedValueOnce(new Error("No response received from server"))
+        .mockRejectedValueOnce(new Error("No response received from server"))
+        .mockRejectedValueOnce(new Error("No response received from server"));
 
       const client = new BlockcypherClient();
       const isConnected = await client.testConnection();
@@ -145,7 +159,7 @@ describe("Blockcypher API Client", () => {
     });
 
     it("should handle API errors gracefully", async () => {
-      // Mock API error response
+      // Mock API error response - override just the next call
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -481,19 +495,36 @@ describe("Blockcypher API Client", () => {
         callback_errors: 0,
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 201,
-        statusText: "Created",
-        text: async () => JSON.stringify(mockResponse),
-      });
+      const mockResponse2 = {
+        id: "webhook-457",
+        event: "tx-confirmation",
+        address: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        url: "https://example.com/webhook",
+        confirmations: 1,
+        token: "test-token",
+        callback_errors: 0,
+      };
 
-      const webhookId = await registerPaymentWebhook(
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () => JSON.stringify(mockResponse),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          text: async () => JSON.stringify(mockResponse2),
+        });
+
+      const webhookIds = await registerPaymentWebhook(
         "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
         "https://example.com/webhook"
       );
 
-      expect(webhookId).toBe("webhook-456");
+      expect(webhookIds).toEqual(["webhook-456", "webhook-457"]);
     });
   });
 
@@ -504,25 +535,42 @@ describe("Blockcypher API Client", () => {
       it("should register webhook pointing to /api/webhook/payment-update endpoint", async () => {
         process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
 
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          status: 201,
-          statusText: "Created",
-          text: async () =>
-            JSON.stringify({
-              id: "webhook-test-123",
-              event: "unconfirmed-tx",
-              address: validTestnetAddress,
-              url: "https://myapp.com/api/webhook/payment-update",
-              confirmations: 0,
-              token: "test-token",
-              callback_errors: 0,
-            }),
-        });
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-123",
+                event: "unconfirmed-tx",
+                address: validTestnetAddress,
+                url: "https://myapp.com/api/webhook/payment-update",
+                confirmations: 0,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-124",
+                event: "tx-confirmation",
+                address: validTestnetAddress,
+                url: "https://myapp.com/api/webhook/payment-update",
+                confirmations: 1,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          });
 
-        const webhookId = await registerAddressWebhook(validTestnetAddress);
+        const webhookIds = await registerAddressWebhook(validTestnetAddress);
 
-        expect(webhookId).toBe("webhook-test-123");
+        expect(webhookIds).toHaveLength(2);
+        expect(webhookIds[0]).toBe("webhook-test-123");
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining("btc/test3/hooks"),
           expect.objectContaining({
@@ -539,25 +587,42 @@ describe("Blockcypher API Client", () => {
       it("should construct HTTPS URL when base URL lacks protocol", async () => {
         process.env.NEXT_PUBLIC_APP_URL = "myapp.com";
 
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          status: 201,
-          statusText: "Created",
-          text: async () =>
-            JSON.stringify({
-              id: "webhook-test-123",
-              event: "unconfirmed-tx",
-              address: validTestnetAddress,
-              url: "https://myapp.com/api/webhook/payment-update",
-              confirmations: 0,
-              token: "test-token",
-              callback_errors: 0,
-            }),
-        });
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-123",
+                event: "unconfirmed-tx",
+                address: validTestnetAddress,
+                url: "https://myapp.com/api/webhook/payment-update",
+                confirmations: 0,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-124",
+                event: "tx-confirmation",
+                address: validTestnetAddress,
+                url: "https://myapp.com/api/webhook/payment-update",
+                confirmations: 1,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          });
 
-        const webhookId = await registerAddressWebhook(validTestnetAddress);
+        const webhookIds = await registerAddressWebhook(validTestnetAddress);
 
-        expect(webhookId).toBe("webhook-test-123");
+        expect(webhookIds).toHaveLength(2);
+        expect(webhookIds[0]).toBe("webhook-test-123");
 
         const fetchCall = mockFetch.mock.calls[0];
         const requestBody = JSON.parse(fetchCall[1].body);
@@ -570,25 +635,42 @@ describe("Blockcypher API Client", () => {
         delete process.env.NEXT_PUBLIC_APP_URL;
         process.env.VERCEL_URL = "myapp.vercel.app";
 
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          status: 201,
-          statusText: "Created",
-          text: async () =>
-            JSON.stringify({
-              id: "webhook-test-123",
-              event: "unconfirmed-tx",
-              address: validTestnetAddress,
-              url: "https://myapp.vercel.app/api/webhook/payment-update",
-              confirmations: 0,
-              token: "test-token",
-              callback_errors: 0,
-            }),
-        });
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-123",
+                event: "unconfirmed-tx",
+                address: validTestnetAddress,
+                url: "https://myapp.vercel.app/api/webhook/payment-update",
+                confirmations: 0,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-124",
+                event: "tx-confirmation",
+                address: validTestnetAddress,
+                url: "https://myapp.vercel.app/api/webhook/payment-update",
+                confirmations: 1,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          });
 
-        const webhookId = await registerAddressWebhook(validTestnetAddress);
+        const webhookIds = await registerAddressWebhook(validTestnetAddress);
 
-        expect(webhookId).toBe("webhook-test-123");
+        expect(webhookIds).toHaveLength(2);
+        expect(webhookIds[0]).toBe("webhook-test-123");
 
         const fetchCall = mockFetch.mock.calls[0];
         const requestBody = JSON.parse(fetchCall[1].body);
@@ -704,7 +786,7 @@ describe("Blockcypher API Client", () => {
         await expect(
           registerAddressWebhook(validTestnetAddress)
         ).rejects.toThrow(
-          /Failed to register webhook for address.*at.*myapp\.com.*payment-update/
+          /Failed to register webhooks for address.*at.*myapp\.com.*payment-update/
         );
       });
 
@@ -793,28 +875,47 @@ describe("Blockcypher API Client", () => {
       it("should return webhook ID for later reference", async () => {
         process.env.NEXT_PUBLIC_APP_URL = "https://myapp.com";
 
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          status: 201,
-          statusText: "Created",
-          text: async () =>
-            JSON.stringify({
-              id: "webhook-test-123",
-              event: "unconfirmed-tx",
-              address: validTestnetAddress,
-              url: "https://myapp.com/api/webhook/payment-update",
-              confirmations: 0,
-              token: "test-token",
-              callback_errors: 0,
-            }),
-        });
+        // Need to mock both webhook registrations
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-123",
+                event: "unconfirmed-tx",
+                address: validTestnetAddress,
+                url: "https://myapp.com/api/webhook/payment-update",
+                confirmations: 0,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            statusText: "Created",
+            text: async () =>
+              JSON.stringify({
+                id: "webhook-test-124",
+                event: "tx-confirmation",
+                address: validTestnetAddress,
+                url: "https://myapp.com/api/webhook/payment-update",
+                confirmations: 1,
+                token: "test-token",
+                callback_errors: 0,
+              }),
+          });
 
-        const webhookId = await registerAddressWebhook(validTestnetAddress);
+        const webhookIds = await registerAddressWebhook(validTestnetAddress);
 
-        expect(typeof webhookId).toBe("string");
-        expect(webhookId).toBe("webhook-test-123");
-        expect(webhookId.length).toBeGreaterThan(0);
-        expect(webhookId).toMatch(/^webhook-[a-zA-Z0-9-]+$/);
+        expect(Array.isArray(webhookIds)).toBe(true);
+        expect(webhookIds).toHaveLength(2);
+        expect(webhookIds[0]).toBe("webhook-test-123");
+        expect(webhookIds[1]).toBe("webhook-test-124");
+        expect(webhookIds[0]).toMatch(/^webhook-[a-zA-Z0-9-]+$/);
+        expect(webhookIds[1]).toMatch(/^webhook-[a-zA-Z0-9-]+$/);
       });
     });
   });

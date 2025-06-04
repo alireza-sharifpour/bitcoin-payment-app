@@ -12,37 +12,49 @@ const BlockcypherTXOutputSchema = z.object({
 
 export type BlockcypherTXOutput = z.infer<typeof BlockcypherTXOutputSchema>;
 
-// This schema represents the expected payload for Blockcypher webhooks.
-// It's designed to capture core information needed for payment processing and validation.
+// This schema represents the actual payload structure sent by BlockCypher webhooks
+// Based on real webhook data received from BlockCypher API
 export const BlockcypherWebhookPayloadSchema = z
   .object({
-    token: z.string().min(1), // The token provided during webhook creation for authentication
-    event: z.enum([
-      "unconfirmed-tx",
-      "confirmed-tx",
-      "tx-confirmation",
-      "new-block",
-      "double-spend-tx",
-    ]), // More specific event types
+    // Core transaction fields that BlockCypher always sends
     hash: z.string().min(1), // Transaction hash
+    addresses: z.array(z.string()), // All addresses involved in the transaction
+    total: z.number().int(), // Total transaction amount in satoshis
+    fees: z.number().int(), // Transaction fees in satoshis
+    confirmations: z.number().int().min(0), // Number of confirmations
+    double_spend: z.boolean(), // Whether this is a double spend
+    
+    // Block information (-1 for unconfirmed)
+    block_height: z.number().int(),
+    block_index: z.number().int(),
+    
+    // Transaction metadata
+    size: z.number().int(),
+    vsize: z.number().int().optional(),
+    preference: z.string(),
+    relayed_by: z.string().optional(),
+    received: z.string(), // ISO timestamp
+    ver: z.number().int(),
+    lock_time: z.number().int().optional(),
+    vin_sz: z.number().int(),
+    vout_sz: z.number().int(),
+    opt_in_rbf: z.boolean().optional(),
 
-    // The specific address that this webhook event pertains to.
-    // This is crucial if the webhook was registered for a particular address.
-    address: z.string().optional(),
+    // Transaction inputs and outputs
+    inputs: z.array(z.object({
+      prev_hash: z.string(),
+      output_index: z.number().int(),
+      output_value: z.number().int(),
+      sequence: z.number().int(),
+      addresses: z.array(z.string()),
+      script_type: z.string(),
+      age: z.number().int().optional(),
+      witness: z.array(z.string()).optional(),
+    })).optional(),
+    
+    outputs: z.array(BlockcypherTXOutputSchema),
 
-    // Transaction details, often part of the main payload or a nested object
-    confirmations: z.number().int().min(0).optional(),
-    confidence: z.number().min(0).max(100).optional(), // For unconfirmed transactions
-    double_spend: z.boolean().optional(),
-
-    total: z.number().int().optional(), // Total transaction amount in satoshis
-    fees: z.number().int().optional(), // Transaction fees in satoshis
-
-    // Outputs are critical for verifying payment to the correct address and the amount
-    outputs: z.array(BlockcypherTXOutputSchema).optional(),
-
-    // We can use .passthrough() to allow other fields Blockcypher might send,
-    // without strictly validating them if they are not critical for our core logic.
+    // Allow other fields BlockCypher might send
   })
   .passthrough();
 

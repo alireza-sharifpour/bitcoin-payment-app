@@ -31,10 +31,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BlockcypherWebhookPayloadSchema } from "@/lib/validation/webhook";
 import {
-  parseWebhookTransaction,
+  parseWebhookTransactionForAllAddresses,
   isValidTransaction,
 } from "@/lib/utils/webhook-parser";
-import { updatePaymentStatus } from "@/lib/store/payment-status";
+import {
+  updatePaymentStatus,
+  isAddressMonitored,
+} from "@/lib/store/payment-status";
 
 /**
  * POST handler for webhook payment updates
@@ -59,6 +62,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Log key webhook information
+  console.log(
+    "[WEBHOOK_DEBUG] Webhook received for transaction:",
+    payload.hash
+  );
+
+  // Get event type from headers (BlockCypher sends it as x-eventtype)
+  const eventType = req.headers.get("x-eventtype");
+  const webhookId = req.headers.get("x-eventid");
+
+  if (!eventType) {
+    console.error("[WEBHOOK_ERROR] Missing x-eventtype header");
+    return NextResponse.json(
+      { error: "Missing event type header" },
+      { status: 400 }
+    );
+  }
+
+  // Validate supported event types
+  const supportedEvents = [
+    "unconfirmed-tx",
+    "confirmed-tx",
+    "tx-confirmation",
+    "new-block",
+    "double-spend-tx",
+  ];
+  if (!supportedEvents.includes(eventType)) {
+    console.error("[WEBHOOK_ERROR] Unsupported event type:", eventType);
+    return NextResponse.json(
+      { error: `Unsupported event type: ${eventType}` },
+      { status: 400 }
+    );
+  }
+
   const validationResult = BlockcypherWebhookPayloadSchema.safeParse(payload);
 
   if (!validationResult.success) {
@@ -77,46 +114,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const validatedPayload = validationResult.data;
 
-  const expectedToken = process.env.BLOCKCYPHER_TOKEN;
-
-  if (!expectedToken) {
-    console.error(
-      "[WEBHOOK_ERROR] BLOCKCYPHER_TOKEN is not set in environment variables."
-    );
-    // This is a server configuration error and should be addressed by the administrator.
-    return NextResponse.json(
-      { error: "Internal server error: Webhook configuration missing" },
-      { status: 500 }
-    );
-  }
-
-  if (validatedPayload.token !== expectedToken) {
-    console.warn(
-      "[WEBHOOK_WARN] Webhook token mismatch. Unauthorized access attempt."
-    );
-    return NextResponse.json(
-      { error: "Unauthorized: Invalid token" },
-      { status: 403 }
-    );
-  }
-
   // ========================================================================
   // Task 5.1.3: Parse transaction data from webhook
   // ========================================================================
 
   console.log(
     "[WEBHOOK_INFO] Processing webhook for event:",
-    validatedPayload.event,
+    eventType,
     "tx_hash:",
-    validatedPayload.hash
+    validatedPayload.hash,
+    "webhook_id:",
+    webhookId
   );
 
-  // Parse transaction data from the validated webhook payload
-  const parsedTransaction = parseWebhookTransaction(validatedPayload);
+  // Parse transaction data for all receiving addresses in the webhook payload
+  const parsedTransactions = parseWebhookTransactionForAllAddresses(
+    validatedPayload,
+    eventType
+  );
 
-  if (!parsedTransaction) {
+  if (parsedTransactions.length === 0) {
     console.error(
-      "[WEBHOOK_ERROR] Could not parse transaction data from webhook payload"
+      "[WEBHOOK_ERROR] Could not parse any transaction data from webhook payload"
     );
     return NextResponse.json(
       { error: "Unable to parse transaction data" },
@@ -124,69 +143,112 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Validate the parsed transaction data
-  if (!isValidTransaction(parsedTransaction)) {
-    console.error(
-      "[WEBHOOK_ERROR] Parsed transaction data is invalid:",
-      parsedTransaction
-    );
-    return NextResponse.json(
-      { error: "Invalid transaction data" },
-      { status: 400 }
-    );
-  }
-
-  console.log("[WEBHOOK_SUCCESS] Successfully parsed transaction data:", {
-    transactionHash: parsedTransaction.transactionHash,
-    address: parsedTransaction.address,
-    status: parsedTransaction.status,
-    confirmations: parsedTransaction.confirmations,
-    amount: parsedTransaction.totalAmount,
-    isDoubleSpend: parsedTransaction.isDoubleSpend,
-  });
+  // Log all receiving addresses
+  console.log(
+    "[WEBHOOK_INFO] Found receiving addresses:",
+    parsedTransactions.map((tx) => tx.address).join(", ")
+  );
 
   // ========================================================================
-  // Task 5.2.2: Update payment status in store
+  // Task 5.2.2: Update payment status in store for all relevant addresses
   // ========================================================================
 
-  try {
-    // Update the payment status in our in-memory store
-    updatePaymentStatus(
-      parsedTransaction.address,
-      parsedTransaction.status,
-      parsedTransaction.transactionHash,
-      parsedTransaction.confirmations,
-      parsedTransaction.totalAmount,
-      parsedTransaction.confidence,
-      parsedTransaction.isDoubleSpend
-    );
+  let successfulUpdates = 0;
+  let failedUpdates = 0;
+  const updateResults = [];
 
-    console.log("[WEBHOOK_SUCCESS] Payment status updated in store:", {
+  for (const parsedTransaction of parsedTransactions) {
+    // Validate the parsed transaction data
+    if (!isValidTransaction(parsedTransaction)) {
+      console.error(
+        "[WEBHOOK_ERROR] Parsed transaction data is invalid:",
+        parsedTransaction
+      );
+      failedUpdates++;
+      continue;
+    }
+
+    // Check if this address is being monitored by our system
+    const isMonitored = await isAddressMonitored(parsedTransaction.address);
+    if (!isMonitored) {
+      console.log(
+        "[WEBHOOK_INFO] Skipping unmonitored address:",
+        parsedTransaction.address
+      );
+      continue;
+    }
+
+    console.log("[WEBHOOK_SUCCESS] Successfully parsed transaction data:", {
+      transactionHash: parsedTransaction.transactionHash,
       address: parsedTransaction.address,
       status: parsedTransaction.status,
       confirmations: parsedTransaction.confirmations,
-      transactionHash: parsedTransaction.transactionHash,
+      amount: parsedTransaction.totalAmount,
+      isDoubleSpend: parsedTransaction.isDoubleSpend,
     });
-  } catch (error) {
-    console.error("[WEBHOOK_ERROR] Failed to update payment status:", error);
-    // We log the error but don't fail the webhook response
-    // BlockCypher should still receive a 200 OK to prevent retries
-    // The error is logged for debugging purposes
+
+    try {
+      // Update the payment status in our file-based store
+      await updatePaymentStatus(
+        parsedTransaction.address,
+        parsedTransaction.status,
+        parsedTransaction.transactionHash,
+        parsedTransaction.confirmations,
+        parsedTransaction.totalAmount,
+        parsedTransaction.confidence,
+        parsedTransaction.isDoubleSpend
+      );
+
+      console.log("[WEBHOOK_SUCCESS] Payment status updated in store:", {
+        address: parsedTransaction.address,
+        status: parsedTransaction.status,
+        confirmations: parsedTransaction.confirmations,
+        transactionHash: parsedTransaction.transactionHash,
+      });
+
+      successfulUpdates++;
+      updateResults.push({
+        address: parsedTransaction.address,
+        status: parsedTransaction.status,
+        updated: true,
+      });
+    } catch (error) {
+      console.error(
+        "[WEBHOOK_ERROR] Failed to update payment status for address:",
+        parsedTransaction.address,
+        error
+      );
+      failedUpdates++;
+      updateResults.push({
+        address: parsedTransaction.address,
+        status: parsedTransaction.status,
+        updated: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      // We log the error but don't fail the webhook response
+      // BlockCypher should still receive a 200 OK to prevent retries
+    }
   }
 
+  const primaryTransaction = parsedTransactions[0];
   console.log("[WEBHOOK_SUCCESS] Webhook processed successfully:", {
-    event: validatedPayload.event,
-    transactionHash: parsedTransaction.transactionHash,
-    address: parsedTransaction.address,
-    status: parsedTransaction.status,
+    event: eventType,
+    transactionHash: primaryTransaction.transactionHash,
+    addressesProcessed: parsedTransactions.length,
+    successfulUpdates,
+    failedUpdates,
+    updateResults,
   });
 
   return NextResponse.json(
     {
       message: "Webhook processed successfully",
-      transactionHash: parsedTransaction.transactionHash,
-      status: parsedTransaction.status,
-      confirmations: parsedTransaction.confirmations,
+      transactionHash: primaryTransaction.transactionHash,
+      status: primaryTransaction.status,
+      confirmations: primaryTransaction.confirmations,
+      addressesProcessed: parsedTransactions.length,
+      successfulUpdates,
+      failedUpdates,
     },
     { status: 200 }
   );

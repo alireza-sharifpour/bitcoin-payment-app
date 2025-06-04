@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { PaymentStatusResponse } from "../../types"; // Updated path to correct types location
+import { PaymentStatusResponse, PaymentStatus } from "../../types"; // Updated path to correct types location
 
 /**
  * Fetches the payment status for a given Bitcoin address.
@@ -39,14 +39,30 @@ async function fetchPaymentStatus(
 }
 
 /**
+ * Configuration options for payment status polling
+ */
+interface PaymentStatusOptions {
+  /** Enable automatic polling as fallback when webhooks might fail */
+  enablePolling?: boolean;
+  /** Custom refetch interval in milliseconds (default: 10000ms for fallback) */
+  refetchInterval?: number;
+  /** Whether to use more aggressive polling based on payment state */
+  aggressivePolling?: boolean;
+}
+
+/**
  * Custom React Query hook to fetch and manage payment status for a Bitcoin address.
  *
  * This hook encapsulates the logic for fetching payment status using TanStack Query.
  * It handles loading, error, and data states automatically. The query is only
  * enabled when a valid address is provided.
  *
+ * Primary update mechanism: Manual refetch (triggered by webhook events)
+ * Fallback mechanism: Automatic polling at configured intervals
+ *
  * @param {string | null | undefined} address - The Bitcoin testnet address to monitor.
  *                                            The query is disabled if address is null or undefined.
+ * @param {PaymentStatusOptions} options - Configuration options for polling behavior
  * @returns {object} The result object from TanStack Query's useQuery, including:
  *                   - data: The payment status response.
  *                   - isLoading: True if the query is currently fetching.
@@ -55,12 +71,27 @@ async function fetchPaymentStatus(
  *                   - refetch: A function to manually refetch the query.
  *
  * @example
- * const { data, isLoading, isError, error } = usePaymentStatus("tb1...");
- * if (isLoading) return <p>Loading status...</p>;
- * if (isError) return <p>Error: {error?.message}</p>;
- * if (data) return <p>Status: {data.status}</p>;
+ * // Manual refetch only (primary method)
+ * const { data, isLoading, refetch } = usePaymentStatus("tb1...");
+ *
+ * @example
+ * // With polling fallback enabled
+ * const { data, isLoading, refetch } = usePaymentStatus("tb1...", {
+ *   enablePolling: true,
+ *   refetchInterval: 15000
+ * });
  */
-export function usePaymentStatus(address: string | null | undefined) {
+export function usePaymentStatus(
+  address: string | null | undefined,
+  options: PaymentStatusOptions = {}
+) {
+  // Extract options with defaults
+  const {
+    enablePolling = false,
+    refetchInterval = 10000, // 10 seconds default for fallback polling
+    aggressivePolling = false,
+  } = options;
+
   return useQuery<PaymentStatusResponse, Error>({
     // Query key: A unique identifier for this query.
     // Includes the address to ensure data is cached per address.
@@ -81,17 +112,56 @@ export function usePaymentStatus(address: string | null | undefined) {
     // The query is enabled only if a valid address string is provided.
     enabled: !!address && typeof address === "string" && address.length > 0,
 
-    // Stale time: How long data is considered fresh (default 0).
-    // staleTime: 0,
+    // Stale time: Keep data fresh for a short period to avoid excessive requests
+    staleTime: 2000, // 2 seconds - data is considered fresh briefly
 
-    // Garbage collection time: How long unused data is kept in cache (default 5 minutes).
-    // gcTime: 1000 * 60 * 5,
+    // Garbage collection time: How long unused data is kept in cache
+    gcTime: 1000 * 60 * 5, // 5 minutes
 
-    // Refetch interval: How often to automatically refetch (Phase 6).
-    // For now, we'll rely on manual refetch or window focus refetch.
-    // refetchInterval: false, // Explicitly false, will be configured in Phase 6
+    // Refetch interval: Configurable polling as fallback mechanism
+    // Primary mechanism is manual refetch, this serves as backup
+    refetchInterval: enablePolling
+      ? (context) => {
+          const { state } = context;
 
-    // Other options like retry, refetchOnWindowFocus can be configured here.
-    // refetchOnWindowFocus: true, // Default is true, usually good
+          // Don't poll if there's an error or no data
+          if (state.error || !state.data) {
+            return false;
+          }
+
+          // Adjust polling based on payment status and aggressive polling setting
+          if (
+            aggressivePolling &&
+            state.data.status === PaymentStatus.AWAITING_PAYMENT
+          ) {
+            // More frequent polling while awaiting payment
+            return Math.min(refetchInterval, 5000); // Cap at 5 seconds for aggressive mode
+          }
+
+          // Stop polling once payment is confirmed
+          if (state.data.status === PaymentStatus.CONFIRMED) {
+            return false;
+          }
+
+          // Use configured interval for other states
+          return refetchInterval;
+        }
+      : false,
+
+    // Refetch on window focus is generally good for payment status
+    refetchOnWindowFocus: true,
+
+    // Retry configuration for network resilience
+    retry: (failureCount, error) => {
+      // Don't retry on 4xx errors (client errors)
+      if (error.message.includes("400") || error.message.includes("404")) {
+        return false;
+      }
+      // Retry up to 3 times for network errors
+      return failureCount < 3;
+    },
+
+    // Retry delay with exponential backoff
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }

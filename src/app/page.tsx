@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 
 import { PaymentForm } from "@/components/payment/PaymentForm";
 import { QrCodeDisplay } from "@/components/payment/QrCodeDisplay";
+import { PaymentStatus } from "@/components/payment/PaymentStatus";
 import type { PaymentRequestData } from "@/actions/payment";
 
 export default function Home() {
@@ -14,6 +15,10 @@ export default function Home() {
 
   const handlePaymentRequestCreated = (data: PaymentRequestData) => {
     setPaymentRequest(data);
+  };
+
+  const handleRetry = () => {
+    setPaymentRequest(null);
   };
 
   return (
@@ -33,16 +38,20 @@ export default function Home() {
         {!paymentRequest ? (
           <PaymentForm onPaymentRequestCreated={handlePaymentRequestCreated} />
         ) : (
-          <>
+          <div className="space-y-6">
             <QrCodeDisplay paymentRequest={paymentRequest} />
+            <PaymentStatus 
+              address={paymentRequest.address} 
+              onRetry={handleRetry}
+            />
             <Button
               variant="outline"
-              onClick={() => setPaymentRequest(null)}
-              className="w-full mt-6"
+              onClick={handleRetry}
+              className="w-full"
             >
               Create Another Payment Request
             </Button>
-          </>
+          </div>
         )}
       </main>
 

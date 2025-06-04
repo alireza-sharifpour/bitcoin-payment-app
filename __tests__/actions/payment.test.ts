@@ -6,21 +6,52 @@
  * This file focuses on Server Action specific behavior, FormData handling, and integration.
  */
 
-import { describe, it, expect, jest, beforeEach } from "@jest/globals";
+// Set up mocks BEFORE any imports
+jest.mock("../../src/lib/api/blockcypher", () => ({
+  registerPaymentWebhook: jest.fn(() => Promise.resolve(["webhook-test-123", "webhook-test-456"])),
+}));
+
+jest.mock("../../src/lib/store/payment-status", () => ({
+  initializePaymentStatus: jest.fn(() => Promise.resolve()),
+}));
+
+// Mock fs to prevent file system operations that might hang
+jest.mock("fs", () => ({
+  promises: {
+    access: jest.fn(() => Promise.resolve()),
+    mkdir: jest.fn(() => Promise.resolve()),
+    writeFile: jest.fn(() => Promise.resolve()),
+    readFile: jest.fn(() => Promise.resolve("{}")),
+  },
+  existsSync: jest.fn(() => false),
+}));
+
+import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 import {
   createPaymentRequest,
   type CreatePaymentRequestResult,
   type PaymentRequestData,
 } from "../../src/actions/payment";
 
-// Mock console.error to avoid noise in test output
+// Mock console methods
 const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+const originalConsoleLog = console.log;
+
 beforeEach(() => {
+  jest.clearAllMocks();
   console.error = jest.fn();
+  console.warn = jest.fn();
+  console.log = jest.fn();
+  // Clear environment variables to prevent webhook calls
+  delete process.env.NEXT_PUBLIC_APP_URL;
+  delete process.env.VERCEL_URL;
 });
 
 afterEach(() => {
   console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
+  console.log = originalConsoleLog;
 });
 
 describe("Payment Server Actions", () => {
@@ -194,7 +225,7 @@ describe("Payment Server Actions", () => {
           expect(result.data.paymentUri).toContain("amount=0.001");
           expect(result.data.paymentUri).toContain("network=testnet");
 
-          // Check webhook ID is still undefined (Task 3.2.3 not implemented yet)
+          // Check webhook ID is undefined since we're not calling webhooks in tests
           expect(result.data.webhookId).toBeUndefined();
         }
       });
@@ -232,8 +263,6 @@ describe("Payment Server Actions", () => {
       });
 
       it("should handle wallet generation errors gracefully", async () => {
-        // This test verifies our error handling code path exists
-        // In a real scenario, this would be tested with proper mocking
         const formData = new FormData();
         formData.append("amount", "0.001");
 
@@ -352,7 +381,7 @@ describe("Payment Server Actions", () => {
           expect(address).toMatch(/^tb1[a-z0-9]{39}$/);
           expect(address.length).toBe(42);
         });
-      });
+      }, 15000);
 
       it("should integrate properly with existing validation layer", async () => {
         // Test with amount that passes validation

@@ -430,23 +430,37 @@ export class BlockcypherClient {
 export const blockcypherClient = new BlockcypherClient();
 
 /**
- * Utility function to create a webhook registration for payment monitoring
+ * Utility function to create webhook registrations for payment monitoring
+ * Registers for both unconfirmed and confirmed transaction events
  *
  * @param address - Bitcoin testnet address to monitor
  * @param callbackUrl - HTTPS URL to receive webhook notifications
- * @returns Promise<string> - Webhook ID for later reference
+ * @returns Promise<string[]> - Array of webhook IDs for later reference
  */
 export async function registerPaymentWebhook(
   address: string,
   callbackUrl: string
-): Promise<string> {
-  const webhook = await blockcypherClient.registerWebhook({
+): Promise<string[]> {
+  const webhookIds: string[] = [];
+
+  // Register for unconfirmed transactions
+  const unconfirmedWebhook = await blockcypherClient.registerWebhook({
     event: WebhookEventType.UNCONFIRMED_TX,
     address,
     url: callbackUrl,
   });
+  webhookIds.push(unconfirmedWebhook.id);
 
-  return webhook.id;
+  // Register for confirmed transactions (1+ confirmations)
+  const confirmedWebhook = await blockcypherClient.registerWebhook({
+    event: WebhookEventType.TX_CONFIRMATION,
+    address,
+    url: callbackUrl,
+    confirmations: 1,
+  });
+  webhookIds.push(confirmedWebhook.id);
+
+  return webhookIds;
 }
 
 /**
@@ -469,7 +483,7 @@ export async function registerPaymentWebhook(
  * console.log("Webhook registered with ID:", webhookId);
  * ```
  */
-export async function registerAddressWebhook(address: string): Promise<string> {
+export async function registerAddressWebhook(address: string): Promise<string[]> {
   // Validate the address first
   if (!address || !isValidTestnetAddress(address)) {
     throw new Error(
@@ -499,19 +513,15 @@ export async function registerAddressWebhook(address: string): Promise<string> {
     );
   }
 
-  // Register the webhook with Blockcypher
+  // Register webhooks with Blockcypher
   try {
-    const webhook = await blockcypherClient.registerWebhook({
-      event: WebhookEventType.UNCONFIRMED_TX,
-      address,
-      url: webhookUrl,
-    });
+    const webhookIds = await registerPaymentWebhook(address, webhookUrl);
 
-    return webhook.id;
+    return webhookIds;
   } catch (error) {
     // Re-throw with more context for debugging
     throw new Error(
-      `Failed to register webhook for address ${address} at ${webhookUrl}: ${
+      `Failed to register webhooks for address ${address} at ${webhookUrl}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
