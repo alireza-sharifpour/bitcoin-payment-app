@@ -6,7 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Copy } from "lucide-react";
 
-import { Button } from "@/components/ui/button"; // Will use themed styles
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -14,15 +14,20 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"; // Will use themed styles
-import { Input } from "@/components/ui/input"; // Will use themed styles
-import { Label } from "@/components/ui/label"; // Will use themed styles
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import type { PaymentRequestData } from "@/actions/payment";
 
 interface QrCodeDisplayProps {
   paymentRequest: PaymentRequestData;
 }
+
+// QR codes should always be dark-on-light for best scanning
+// regardless of the current theme
+const qrFgColor = "#000000"; // Always black for QR pattern
+const qrBgColor = "#FFFFFF"; // Always white background
 
 export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
   if (!paymentRequest) {
@@ -44,43 +49,33 @@ export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
     }
   };
 
-  // Card foreground color (text-main: #1A1A1A in light mode)
-  const qrFgColor = "#1A1A1A";
-  // QR code's own background explicitly white for contrast on the card.
-  const actualQrBgColor = "#FFFFFF";
-
   return (
-    // Card component uses --card and --card-foreground
     <Card className="w-full max-w-md mt-6">
       <CardHeader>
-        {/* CardTitle uses --card-foreground */}
         <CardTitle>Scan to Pay</CardTitle>
-        {/* CardDescription uses --muted-foreground (applied to card's text) */}
         <CardDescription>
           Use your Bitcoin testnet wallet to scan the QR code below.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center space-y-4">
         {paymentUri && (
-          // This div provides a white padded area for the QR code.
-          <div className="p-4 bg-white rounded-lg shadow">
+          // White background container with Bitcoin orange accent
+          <div className="p-4 bg-white rounded-lg shadow-lg shadow-primary/20 ring-1 ring-primary/20">
             <QRCodeSVG
               value={paymentUri}
               size={256}
-              bgColor={actualQrBgColor} // QR code modules background (white)
-              fgColor={qrFgColor} // QR code modules foreground (dark)
+              bgColor={qrBgColor}
+              fgColor={qrFgColor}
               level="Q"
-              includeMargin={true} // This margin area will also be actualQrBgColor
+              includeMargin={true}
             />
           </div>
         )}
 
         <div className="w-full space-y-3 pt-4">
           <div>
-            {/* Label uses themed text color */}
             <Label htmlFor="bitcoin-address">Bitcoin Address (Testnet)</Label>
             <div className="flex items-center space-x-2">
-              {/* Input uses themed styles */}
               <Input
                 id="bitcoin-address"
                 type="text"
@@ -88,7 +83,6 @@ export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
                 readOnly
                 className="truncate"
               />
-              {/* Button with variant="outline" uses themed border/text */}
               <Button
                 variant="outline"
                 size="icon"
@@ -123,7 +117,6 @@ export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
           </div>
         </div>
       </CardContent>
-      {/* CardFooter text explicitly set to use --muted-foreground */}
       <CardFooter className="text-xs text-muted-foreground">
         <p>
           Ensure you are sending testnet Bitcoin (tBTC). Real Bitcoin sent to
