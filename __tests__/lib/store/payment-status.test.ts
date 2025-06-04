@@ -129,8 +129,8 @@ describe("Payment Status Store", () => {
       expect(status?.errorMessage).toBe("Payment processing error");
     });
 
-    it("should create new entry if address doesn't exist", async () => {
-      // Update without initialization
+    it("should not create new entry if address doesn't exist", async () => {
+      // Update without initialization should not create new entry
       await updatePaymentStatus(
         testAddress1,
         PaymentStatus.PAYMENT_DETECTED,
@@ -139,8 +139,7 @@ describe("Payment Status Store", () => {
       );
 
       const status = await getPaymentStatus(testAddress1);
-      expect(status).not.toBeNull();
-      expect(status?.status).toBe(PaymentStatus.PAYMENT_DETECTED);
+      expect(status).toBeNull();
     });
 
     it("should update lastUpdated timestamp", async () => {
@@ -253,6 +252,7 @@ describe("Payment Status Store", () => {
   describe("getStoreStats", () => {
     it("should return correct statistics", async () => {
       await initializePaymentStatus(testAddress1);
+      await initializePaymentStatus(testAddress2);
       await updatePaymentStatus(
         testAddress2,
         PaymentStatus.PAYMENT_DETECTED,

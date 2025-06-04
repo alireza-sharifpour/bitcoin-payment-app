@@ -170,7 +170,7 @@ describe("Webhook Payment Update API Route", () => {
     });
 
     it("should handle webhook for non-existing payment", async () => {
-      // Don't initialize payment status - simulate webhook for unknown address
+      // Don't initialize payment status - simulate webhook for unmonitored address
 
       const webhookPayload = createValidWebhookPayload({
         confirmations: 0,
@@ -194,10 +194,9 @@ describe("Webhook Payment Update API Route", () => {
 
       expect(response.status).toBe(200);
 
-      // Should create new payment status
+      // Should NOT create new payment status for unmonitored addresses
       const status = await getPaymentStatus(testAddress);
-      expect(status).not.toBeNull();
-      expect(status?.status).toBe(PaymentStatus.PAYMENT_DETECTED);
+      expect(status).toBeNull();
     });
 
     it("should reject webhook with missing event type header", async () => {
