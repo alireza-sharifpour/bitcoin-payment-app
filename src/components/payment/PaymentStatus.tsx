@@ -35,7 +35,7 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
       <Card className="w-full max-w-md mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
             Loading Payment Status
           </CardTitle>
         </CardHeader>
@@ -80,14 +80,14 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
         return (
           <>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-blue-600">
+              <CardTitle className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="h-5 w-5" />
                 Awaiting Payment
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
               <div className="text-center">
                 <p className="text-muted-foreground mb-2">
@@ -106,7 +106,7 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
         return (
           <>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-600">
+              <CardTitle className="flex items-center gap-2 text-primary">
                 <Clock className="h-5 w-5" />
                 Payment Detected
               </CardTitle>
@@ -114,14 +114,14 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-center py-6">
                 <div className="relative">
-                  <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="h-4 w-4 bg-orange-600 rounded-full animate-pulse" />
+                    <div className="h-4 w-4 bg-primary rounded-full animate-pulse" />
                   </div>
                 </div>
               </div>
               <div className="text-center space-y-2">
-                <p className="font-medium text-orange-600">
+                <p className="font-medium text-primary">
                   Payment detected in the blockchain!
                 </p>
                 <p className="text-muted-foreground">
@@ -139,7 +139,7 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
                       href={`${testnetExplorerUrl}${paymentStatus.transactionId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 underline break-all"
+                      className="text-primary hover:text-primary/80 underline break-all transition-colors"
                     >
                       {paymentStatus.transactionId}
                     </a>
@@ -186,7 +186,7 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
                       href={`${testnetExplorerUrl}${paymentStatus.transactionId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 underline break-all"
+                      className="text-primary hover:text-primary/80 underline break-all transition-colors"
                     >
                       {paymentStatus.transactionId}
                     </a>
