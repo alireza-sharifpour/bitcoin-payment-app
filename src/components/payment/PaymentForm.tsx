@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useActionState, useEffect } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button"; // Will use themed styles
 import {
@@ -35,7 +36,7 @@ const formSchema = z.object({
 type PaymentFormValues = z.infer<typeof formSchema>;
 
 interface PaymentFormProps {
-  onPaymentRequestCreated: (data: PaymentRequestData) => void;
+  onPaymentRequestCreated?: (data: PaymentRequestData) => void;
 }
 
 // Wrapper function to make Server Action compatible with useActionState
@@ -47,6 +48,7 @@ async function createPaymentRequestAction(
 }
 
 export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
+  const router = useRouter();
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -65,14 +67,17 @@ export function PaymentForm({ onPaymentRequestCreated }: PaymentFormProps) {
   useEffect(() => {
     if (state?.success && state.data) {
       toast.success("Payment request created successfully!");
-      onPaymentRequestCreated(state.data);
+      // Call the callback if provided (for backward compatibility)
+      onPaymentRequestCreated?.(state.data);
+      // Redirect to the dynamic payment route
+      router.push(`/payment/${state.data.address}`);
       form.reset();
     } else if (state && !state.success && state.error) {
       toast.error(
         state.error || "Failed to create payment request. Please try again."
       );
     }
-  }, [state, form, onPaymentRequestCreated]);
+  }, [state, form, onPaymentRequestCreated, router]);
 
   // Client-side validation before form submission
   function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
