@@ -49,7 +49,7 @@ The application follows a **server-side security model** where all sensitive cry
 #### Core Components
 
 - **`/app/page.tsx`**: Main application page with payment form
-- **`/app/payment/[address]/`**: Dynamic payment page for individual addresses
+- **`/app/payment/[address]/`**: Dynamic payment page with server-side data fetching and React Query hydration
 - **`/components/payment/`**: Payment-specific UI components
 
   - `PaymentForm.tsx`: User input form with amount validation
@@ -66,6 +66,7 @@ The application follows a **server-side security model** where all sensitive cry
 - **`/lib/api/blockcypher.ts`**: BlockCypher API client with retry logic
 - **`/lib/store/payment-status.ts`**: File-based payment status persistence
 - **`/lib/validation/`**: Zod schemas for data validation
+- **`/lib/query-client-server.ts`**: Server-side React Query client with caching
 
 ### Data Flow
 
@@ -78,6 +79,11 @@ The application follows a **server-side security model** where all sensitive cry
 2. **Payment Processing**:
    ```
    Bitcoin Transaction → BlockCypher Detection → Webhook Notification → Status Update → Client Polling → UI Update
+   ```
+
+3. **Payment Status Page Flow** (Server-Side Rendering):
+   ```
+   URL Access → Server-Side Data Prefetch → React Query Hydration → Client-Side Polling → Real-time Updates
    ```
 
 ## Blockchain Integration
@@ -621,7 +627,7 @@ This enhancement would provide a more robust payment system that naturally handl
 **Dynamic Address Routes:**
 
 ```typescript
-// /app/payment/[address]/page.tsx - Direct address access (IMPLEMENTED)
+// /app/payment/[address]/page.tsx - Direct address access with SSR (IMPLEMENTED)
 export default async function PaymentPage({ params }: PaymentPageProps) {
   const { address } = await params;
   
@@ -630,11 +636,29 @@ export default async function PaymentPage({ params }: PaymentPageProps) {
     notFound();
   }
 
-  // Get payment status from the store
-  const paymentStatus = await getPaymentStatus(address);
+  // Server-side data prefetching with React Query
+  const queryClient = getQueryClient();
+  await queryClient.prefetchQuery({
+    queryKey: ['paymentStatus', address],
+    queryFn: async () => {
+      const fullData = await getFullPaymentData(address);
+      return {
+        status: fullData.status,
+        confirmations: fullData.confirmations,
+        transactionId: fullData.transactionId,
+        errorMessage: fullData.errorMessage,
+        lastUpdated: fullData.lastUpdated,
+      };
+    },
+  });
   
-  // Display comprehensive payment information for specific address
-  // Shows QR code, payment URI, transaction history, and real-time status
+  // Hydrate client with prefetched data
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      {/* Display comprehensive payment information for specific address */}
+      {/* Shows QR code, payment URI, transaction history, and real-time status */}
+    </HydrationBoundary>
+  );
 }
 
 // /app/transaction/[txHash]/page.tsx - Transaction details (PLANNED)
@@ -678,7 +702,14 @@ https://yourapp.com/payment/tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh  # ✅ IM
 https://yourapp.com/transaction/1a2b3c4d5e6f...                          # ⏳ PLANNED
 ```
 
-**Current Status**: The dynamic address routing enhancement has been implemented, transforming the application from a purely form-based payment processor into a more comprehensive system with direct address access. Transaction detail pages are planned for future implementation.
+**Current Status**: The dynamic address routing enhancement has been implemented with full server-side rendering support, transforming the application from a purely form-based payment processor into a more comprehensive system with direct address access and optimized data loading. The implementation includes:
+
+- **Server-Side Data Prefetching**: Payment status data is fetched on the server and hydrated to the client
+- **Query Client Optimization**: Cached query client instance per request using React's cache() function
+- **Seamless Hydration**: TanStack Query's HydrationBoundary ensures smooth transition from SSR to client
+- **Fallback Handling**: Graceful error handling with client-side fetching as backup
+
+Transaction detail pages are planned for future implementation.
 
 ### 7. Integration & Ecosystem
 
@@ -720,7 +751,7 @@ https://yourapp.com/transaction/1a2b3c4d5e6f...                          # ⏳ P
 #### Validation & State Management
 
 - **Zod**: Runtime type validation and schema definition
-- **TanStack Query**: Server state management and caching
+- **TanStack Query**: Server state management with SSR support and hydration
 
 #### UI & Styling
 
@@ -731,7 +762,10 @@ https://yourapp.com/transaction/1a2b3c4d5e6f...                          # ⏳ P
 ### Performance Considerations
 
 - **Server-Side Operations**: All cryptographic operations on server
-- **Efficient Polling**: Optimized payment status checking
+- **Server-Side Rendering**: Payment status pages use SSR with data prefetching
+- **Data Hydration**: React Query hydration prevents redundant API calls
+- **Efficient Polling**: Optimized payment status checking with intelligent intervals
+- **Query Client Caching**: Server-side query client cached per request using React's cache()
 - **File-Based Storage**: Lightweight persistent storage
 - **Connection Pooling**: Efficient BlockCypher API usage
 
