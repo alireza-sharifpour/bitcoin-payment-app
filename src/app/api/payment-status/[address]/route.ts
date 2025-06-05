@@ -32,7 +32,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPaymentStatus } from "@/lib/store/payment-status";
 import { isValidTestnetAddress } from "@/lib/bitcoin/wallet";
-import type { PaymentStatusResponse } from "../../../../../types";
+import type { PaymentStatusResponse } from "@/types";
 
 /**
  * GET handler for retrieving payment status

@@ -19,7 +19,7 @@
  * - Data persists across server restarts
  */
 
-import { PaymentStatus, type PaymentStatusResponse } from "../../../types";
+import { PaymentStatus, type PaymentStatusResponse } from "@/types";
 import { promises as fs } from "fs";
 import path from "path";
 import { existsSync } from "fs";

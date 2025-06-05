@@ -8,7 +8,7 @@
 import { NextRequest } from "next/server";
 import { GET, POST, OPTIONS } from "@/app/api/payment-status/[address]/route";
 import { getPaymentStatus } from "@/lib/store/payment-status";
-import { PaymentStatus } from "../../types";
+import { PaymentStatus } from "@/types";
 
 // Mock the payment status store module
 jest.mock("@/lib/store/payment-status", () => ({

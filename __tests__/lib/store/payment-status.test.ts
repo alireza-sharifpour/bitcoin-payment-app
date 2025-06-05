@@ -20,7 +20,7 @@ import {
   getStoreStats,
   cleanupOldEntries,
 } from "@/lib/store/payment-status";
-import { PaymentStatus } from "../../../types";
+import { PaymentStatus } from "@/types";
 
 describe("Payment Status Store", () => {
   // Test Bitcoin addresses

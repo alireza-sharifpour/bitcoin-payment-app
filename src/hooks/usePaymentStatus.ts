@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { PaymentStatusResponse, PaymentStatus } from "../../types"; // Updated path to correct types location
+import { PaymentStatusResponse, PaymentStatus } from "@/types";
 
 /**
  * Fetches the payment status for a given Bitcoin address.

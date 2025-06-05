@@ -11,9 +11,9 @@ import {
   extractAddress,
   calculateAmountReceived,
   isValidTransaction,
-} from "../../src/lib/utils/webhook-parser";
-import { PaymentStatus } from "../../types";
-import type { BlockcypherWebhookPayload } from "../../src/lib/validation/webhook";
+} from "@/lib/utils/webhook-parser";
+import { PaymentStatus } from "@/types";
+import type { BlockcypherWebhookPayload } from "@/lib/validation/webhook";
 
 describe("webhook-parser", () => {
   const mockAddress = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx";

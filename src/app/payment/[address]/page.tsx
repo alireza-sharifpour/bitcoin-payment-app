@@ -10,7 +10,7 @@ import { getFullPaymentData } from "@/lib/store/payment-status";
 import { generateBip21Uri } from "@/lib/validation/payment";
 import { isValidTestnetAddress } from "@/lib/bitcoin/wallet";
 import type { PaymentRequestData } from "@/actions/payment";
-import type { PaymentStatusResponse } from "../../../../types";
+import type { PaymentStatusResponse } from "@/types";
 import getQueryClient from "@/lib/query-client-server";
 
 interface PaymentPageProps {

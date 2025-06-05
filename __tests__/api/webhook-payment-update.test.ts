@@ -12,7 +12,7 @@ import {
   clearAllPaymentStatuses,
   initializePaymentStatus,
 } from "@/lib/store/payment-status";
-import { PaymentStatus } from "../../types";
+import { PaymentStatus } from "@/types";
 
 // Mock environment variable
 const originalEnv = process.env;

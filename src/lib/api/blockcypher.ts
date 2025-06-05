@@ -14,7 +14,7 @@
  */
 
 import { isValidTestnetAddress } from "@/lib/bitcoin/wallet";
-import type { WebhookRegistration } from "../../../types";
+import type { WebhookRegistration } from "@/types";
 
 // Environment validation
 const BLOCKCYPHER_TOKEN = process.env.BLOCKCYPHER_TOKEN;
