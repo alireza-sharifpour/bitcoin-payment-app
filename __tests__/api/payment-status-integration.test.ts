@@ -161,7 +161,7 @@ describe("Payment Status API Route - Integration Tests", () => {
     const addresses = [
       "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
       "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
-      "tb1q5y9rq2t4mckfxajkvfwlxhz2q8xr5jc29ydc3e"
+      "n2eMqTT929pb1RDNuqEnxdaLau1rxy3efi"
     ];
 
     // Initialize all addresses

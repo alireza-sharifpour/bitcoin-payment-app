@@ -48,6 +48,8 @@ The application follows a **server-side security model** where all sensitive cry
 
 #### Core Components
 
+- **`/app/page.tsx`**: Main application page with payment form
+- **`/app/payment/[address]/`**: Dynamic payment page for individual addresses
 - **`/components/payment/`**: Payment-specific UI components
 
   - `PaymentForm.tsx`: User input form with amount validation
@@ -239,6 +241,17 @@ npm run dev
 
 For local development and testing webhooks, use [ngrok](https://ngrok.com/) to expose your local server to the internet:
 
+### Testing with Electrum Wallet
+
+To test Bitcoin transactions locally, you can use Electrum wallet in testnet mode:
+
+```bash
+# macOS: Run Electrum in testnet mode
+open -a Electrum --args --testnet
+```
+
+This allows you to send testnet Bitcoin to your generated addresses for testing the payment flow.
+
 ```bash
 # Install ngrok (if not already installed)
 npm install -g ngrok
@@ -380,6 +393,9 @@ npm run test:coverage # Generate coverage report
 src/
 ├── actions/           # Server Actions for secure operations
 ├── app/              # Next.js App Router pages and API routes
+│   ├── page.tsx      # Main application page with payment form
+│   └── payment/      # Dynamic payment pages
+│       └── [address]/ # Individual address payment pages
 ├── components/       # React components (UI and payment-specific)
 ├── hooks/           # Custom React hooks
 ├── lib/             # Core business logic
@@ -593,28 +609,35 @@ This enhancement would provide a more robust payment system that naturally handl
 
 ### 6. Dynamic Routing Enhancement
 
-**Dynamic Routes for Generated Addresses and Transactions**: Implement dynamic route structures to provide direct access to specific payment addresses and transaction details.
+**Dynamic Routes for Generated Addresses and Transactions**: The application now includes dynamic route structures that provide direct access to specific payment addresses, with transaction details planned for future implementation.
 
-#### Current Limitation:
+#### Implementation Status:
 
-The application currently uses parameterized API routes (`/api/payment-status/[address]`) but lacks corresponding user-facing dynamic routes for addresses and transactions.
+✅ **Dynamic Address Routes**: Implemented `/app/payment/[address]/page.tsx` for direct address access
+⏳ **Transaction Detail Routes**: Planned implementation for `/app/transaction/[txHash]/page.tsx`
 
-#### Proposed Implementation:
+#### Current Implementation:
 
 **Dynamic Address Routes:**
 
 ```typescript
-// /app/payment/[address]/page.tsx - Direct address access
-export default function PaymentAddressPage({
-  params,
-}: {
-  params: { address: string };
-}) {
+// /app/payment/[address]/page.tsx - Direct address access (IMPLEMENTED)
+export default async function PaymentPage({ params }: PaymentPageProps) {
+  const { address } = await params;
+  
+  // Validate address format (Bitcoin testnet addresses)
+  if (!isValidTestnetAddress(address)) {
+    notFound();
+  }
+
+  // Get payment status from the store
+  const paymentStatus = await getPaymentStatus(address);
+  
   // Display comprehensive payment information for specific address
-  // Show QR code, payment URI, transaction history, and real-time status
+  // Shows QR code, payment URI, transaction history, and real-time status
 }
 
-// /app/transaction/[txHash]/page.tsx - Transaction details
+// /app/transaction/[txHash]/page.tsx - Transaction details (PLANNED)
 export default function TransactionDetailsPage({
   params,
 }: {
@@ -651,11 +674,11 @@ export default function TransactionDetailsPage({
 #### Example URL Structure:
 
 ```
-https://yourapp.com/payment/tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
-https://yourapp.com/transaction/1a2b3c4d5e6f...
+https://yourapp.com/payment/tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh  # ✅ IMPLEMENTED
+https://yourapp.com/transaction/1a2b3c4d5e6f...                          # ⏳ PLANNED
 ```
 
-This enhancement would transform the application from a form-based payment processor into a comprehensive Bitcoin explorer interface, significantly improving usability and integration potential.
+**Current Status**: The dynamic address routing enhancement has been implemented, transforming the application from a purely form-based payment processor into a more comprehensive system with direct address access. Transaction detail pages are planned for future implementation.
 
 ### 7. Integration & Ecosystem
 

@@ -31,6 +31,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getPaymentStatus } from "@/lib/store/payment-status";
+import { isValidTestnetAddress } from "@/lib/bitcoin/wallet";
 import type { PaymentStatusResponse } from "../../../../../types";
 
 /**
@@ -62,12 +63,8 @@ export async function GET(
       );
     }
 
-    // Basic validation for Bitcoin testnet address format
-    // Testnet addresses can start with: tb1 (native segwit), 2, m, or n
-    const testnetAddressRegex =
-      /^(tb1[a-z0-9]{39,59}|[2mn][a-zA-Z0-9]{33,34})$/;
-
-    if (!testnetAddressRegex.test(address)) {
+    // Validate Bitcoin testnet address format using the robust wallet validation
+    if (!isValidTestnetAddress(address)) {
       console.error(
         "[PAYMENT_STATUS_API] Invalid Bitcoin testnet address format:",
         address

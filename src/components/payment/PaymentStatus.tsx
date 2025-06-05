@@ -176,7 +176,7 @@ export function PaymentStatus({ address, onRetry }: PaymentStatusProps) {
                 </p>
                 {paymentStatus.confirmations !== undefined && (
                   <p className="text-sm text-muted-foreground">
-                    Confirmations: {paymentStatus.confirmations}
+                    Confirmations: {paymentStatus.confirmations}/1
                   </p>
                 )}
                 {paymentStatus.transactionId && (
