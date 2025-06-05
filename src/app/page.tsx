@@ -21,9 +21,13 @@ export default function Home() {
       </main>
 
       <footer className="mt-12 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} Your Company Name. All rights reserved.</p>
+        <p>
+          &copy; {new Date().getFullYear()} Bitcoin Testnet Payment. All rights
+          reserved.
+        </p>
         <p className="mt-1">
-          This application uses the Bitcoin test network. Do not use real Bitcoin.
+          This application uses the Bitcoin test network. Do not use real
+          Bitcoin.
         </p>
       </footer>
     </div>
