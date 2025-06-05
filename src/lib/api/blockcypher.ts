@@ -14,7 +14,7 @@
  */
 
 import { isValidTestnetAddress } from "@/lib/bitcoin/wallet";
-import type { WebhookRegistration } from "@/types/webhook";
+import type { WebhookRegistration } from "../../../types";
 
 // Environment validation
 const BLOCKCYPHER_TOKEN = process.env.BLOCKCYPHER_TOKEN;
@@ -483,7 +483,9 @@ export async function registerPaymentWebhook(
  * console.log("Webhook registered with ID:", webhookId);
  * ```
  */
-export async function registerAddressWebhook(address: string): Promise<string[]> {
+export async function registerAddressWebhook(
+  address: string
+): Promise<string[]> {
   // Validate the address first
   if (!address || !isValidTestnetAddress(address)) {
     throw new Error(
