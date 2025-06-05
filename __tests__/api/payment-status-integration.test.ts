@@ -12,7 +12,7 @@ import {
   updatePaymentStatus,
   clearAllPaymentStatuses,
 } from "@/lib/store/payment-status";
-import { PaymentStatus } from "../../types";
+import { PaymentStatus } from "@/types";
 
 // Don't mock the store - we want to test real integration
 describe("Payment Status API Route - Integration Tests", () => {

@@ -7,7 +7,7 @@ import { CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { usePaymentStatus } from "@/hooks/usePaymentStatus";
-import { PaymentStatus as PaymentStatusEnum } from "../../../types";
+import { PaymentStatus as PaymentStatusEnum } from "@/types";
 
 interface PaymentStatusProps {
   address: string;

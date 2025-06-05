@@ -14,7 +14,7 @@
  */
 
 import type { BlockcypherWebhookPayload } from "@/lib/validation/webhook";
-import { PaymentStatus } from "../../../types";
+import { PaymentStatus } from "@/types";
 
 /**
  * Parsed transaction data extracted from webhook

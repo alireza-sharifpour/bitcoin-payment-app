@@ -2,7 +2,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { PaymentStatusResponse, PaymentStatus } from "../../types"; // Updated path to correct types location
+import { PaymentStatusResponse, PaymentStatus } from "@/types";
 
 /**
  * Fetches the payment status for a given Bitcoin address.
@@ -59,6 +59,7 @@ interface PaymentStatusOptions {
  *
  * Primary update mechanism: Manual refetch (triggered by webhook events)
  * Fallback mechanism: Automatic polling at configured intervals
+ * SSR-optimized: Uses hydrated data from server-side prefetch when available
  *
  * @param {string | null | undefined} address - The Bitcoin testnet address to monitor.
  *                                            The query is disabled if address is null or undefined.
@@ -112,8 +113,8 @@ export function usePaymentStatus(
     // The query is enabled only if a valid address string is provided.
     enabled: !!address && typeof address === "string" && address.length > 0,
 
-    // Stale time: Keep data fresh for a short period to avoid excessive requests
-    staleTime: 2000, // 2 seconds - data is considered fresh briefly
+    // Stale time: Keep data fresh for a longer period since we use SSR hydration
+    staleTime: 60 * 1000, // 1 minute - avoid immediate refetch after SSR
 
     // Garbage collection time: How long unused data is kept in cache
     gcTime: 1000 * 60 * 5, // 5 minutes
@@ -132,7 +133,8 @@ export function usePaymentStatus(
           // Adjust polling based on payment status and aggressive polling setting
           if (
             aggressivePolling &&
-            state.data.status === PaymentStatus.AWAITING_PAYMENT
+            (state.data.status === PaymentStatus.AWAITING_PAYMENT ||
+              state.data.status === PaymentStatus.PAYMENT_DETECTED)
           ) {
             // More frequent polling while awaiting payment
             return Math.min(refetchInterval, 5000); // Cap at 5 seconds for aggressive mode

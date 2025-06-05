@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { QueryProvider } from "@/components/providers/QueryProvider"; // Import the QueryProvider
+import { QueryProvider } from "@/providers/QueryProvider"; // Import the QueryProvider
 import { Toaster } from "@/components/ui/sonner"; // Import the Toaster
 
 const geistSans = Geist({
