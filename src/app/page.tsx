@@ -1,30 +1,12 @@
 // src/app/page.tsx
 "use client";
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-
+import React from "react";
 import { PaymentForm } from "@/components/payment/PaymentForm";
-import { QrCodeDisplay } from "@/components/payment/QrCodeDisplay";
-import { PaymentStatus } from "@/components/payment/PaymentStatus";
-import type { PaymentRequestData } from "@/actions/payment";
 
 export default function Home() {
-  const [paymentRequest, setPaymentRequest] =
-    useState<PaymentRequestData | null>(null);
-
-  const handlePaymentRequestCreated = (data: PaymentRequestData) => {
-    setPaymentRequest(data);
-  };
-
-  const handleRetry = () => {
-    setPaymentRequest(null);
-  };
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8">
-      {/* The test div has been removed from here */}
-
       <header className="mb-8 text-center">
         <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
           Bitcoin Testnet Payment
@@ -35,24 +17,7 @@ export default function Home() {
       </header>
 
       <main className="w-full max-w-md">
-        {!paymentRequest ? (
-          <PaymentForm onPaymentRequestCreated={handlePaymentRequestCreated} />
-        ) : (
-          <div className="space-y-6">
-            <QrCodeDisplay paymentRequest={paymentRequest} />
-            <PaymentStatus 
-              address={paymentRequest.address} 
-              onRetry={handleRetry}
-            />
-            <Button
-              variant="outline"
-              onClick={handleRetry}
-              className="w-full"
-            >
-              Create Another Payment Request
-            </Button>
-          </div>
-        )}
+        <PaymentForm />
       </main>
 
       <footer className="mt-12 text-center text-sm text-muted-foreground">
