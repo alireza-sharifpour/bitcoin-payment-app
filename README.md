@@ -241,6 +241,17 @@ npm run dev
 
 For local development and testing webhooks, use [ngrok](https://ngrok.com/) to expose your local server to the internet:
 
+### Testing with Electrum Wallet
+
+To test Bitcoin transactions locally, you can use Electrum wallet in testnet mode:
+
+```bash
+# macOS: Run Electrum in testnet mode
+open -a Electrum --args --testnet
+```
+
+This allows you to send testnet Bitcoin to your generated addresses for testing the payment flow.
+
 ```bash
 # Install ngrok (if not already installed)
 npm install -g ngrok
