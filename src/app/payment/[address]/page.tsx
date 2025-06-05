@@ -5,10 +5,7 @@ import { QrCodeDisplay } from "@/components/payment/QrCodeDisplay";
 import { PaymentStatus } from "@/components/payment/PaymentStatus";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import {
-  getPaymentStatus,
-  getAllPaymentStatuses,
-} from "@/lib/store/payment-status";
+import { getFullPaymentData } from "@/lib/store/payment-status";
 import { generateBip21Uri } from "@/lib/validation/payment";
 import { isValidTestnetAddress } from "@/lib/bitcoin/wallet";
 import type { PaymentRequestData } from "@/actions/payment";
@@ -27,18 +24,9 @@ export default async function PaymentPage({ params }: PaymentPageProps) {
     notFound();
   }
 
-  // Get payment status from the store
-  const paymentStatus = await getPaymentStatus(address);
-
-  if (!paymentStatus) {
-    notFound();
-  }
-
-  // Get full payment data to reconstruct PaymentRequestData
-  const allStatuses = await getAllPaymentStatuses();
-  const fullPaymentData = allStatuses.find(
-    (status) => status.address === address
-  );
+  // Get full payment data from the store
+  const fullPaymentData = await getFullPaymentData(address);
+  console.log("fullPaymentData", fullPaymentData);
 
   if (!fullPaymentData) {
     notFound();
