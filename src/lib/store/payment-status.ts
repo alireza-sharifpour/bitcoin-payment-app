@@ -292,6 +292,26 @@ export async function clearAllPaymentStatuses(): Promise<void> {
 }
 
 /**
+ * Get full payment data for a specific address
+ * Returns complete PaymentStatusData including all metadata
+ * 
+ * @param address - Bitcoin testnet address
+ * @returns Full payment status data or null if not found
+ */
+export async function getFullPaymentData(address: string): Promise<PaymentStatusData | null> {
+  const store = await loadPaymentStatuses();
+  const statusData = store.get(address);
+  
+  if (!statusData) {
+    console.log("[PAYMENT_STORE] Full payment data not found for address:", address);
+    return null;
+  }
+
+  // Return a safe copy of the complete data
+  return { ...statusData };
+}
+
+/**
  * Get all payment statuses (for debugging/monitoring)
  * Returns a safe copy of the data
  * 
