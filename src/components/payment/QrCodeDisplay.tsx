@@ -73,7 +73,7 @@ export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
         )}
 
         <div className="w-full space-y-3 pt-4">
-          <div>
+          <div className="flex flex-col gap-1">
             <Label htmlFor="bitcoin-address">Bitcoin Address (Testnet)</Label>
             <div className="flex items-center space-x-2">
               <Input
@@ -94,7 +94,7 @@ export function QrCodeDisplay({ paymentRequest }: QrCodeDisplayProps) {
             </div>
           </div>
 
-          <div>
+          <div className="flex flex-col gap-1">
             <Label htmlFor="bitcoin-amount">Amount (BTC)</Label>
             <div className="flex items-center space-x-2">
               <Input
