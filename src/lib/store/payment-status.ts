@@ -1,18 +1,18 @@
 /**
  * File-Based Payment Status Store
- * 
+ *
  * Task 5.2.1: Create persistent payment status store
- * 
+ *
  * This module implements a file-based store for tracking payment statuses
  * by Bitcoin address. The store is updated by webhook events and queried by
  * the client through the status API endpoint.
- * 
+ *
  * Key features:
  * - File-based persistent storage for payment statuses
  * - Thread-safe operations using atomic file writes
  * - Status types: AWAITING_PAYMENT, PAYMENT_DETECTED, CONFIRMED, ERROR
  * - Stores transaction details including confirmations and transaction ID
- * 
+ *
  * Security considerations:
  * - Only stores public information (addresses, transaction IDs)
  * - No private keys or sensitive data
@@ -50,14 +50,18 @@ interface PaymentStatusData extends PaymentStatusResponse {
  * Uses unique directories for tests to prevent concurrent access issues
  */
 function getStoreConfig() {
-  const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID;
-  const baseDir = isTest 
-    ? path.join(process.cwd(), '.payment-store-test', `worker-${process.env.JEST_WORKER_ID || 'main'}`)
-    : path.join(process.cwd(), '.payment-store');
-  
+  const isTest = process.env.NODE_ENV === "test" || process.env.JEST_WORKER_ID;
+  const baseDir = isTest
+    ? path.join(
+        process.cwd(),
+        ".payment-store-test",
+        `worker-${process.env.JEST_WORKER_ID || "main"}`
+      )
+    : path.join(process.cwd(), ".payment-store");
+
   return {
     STORE_DIR: baseDir,
-    STORE_FILE: path.join(baseDir, 'payment-statuses.json')
+    STORE_FILE: path.join(baseDir, "payment-statuses.json"),
   };
 }
 
@@ -78,16 +82,16 @@ async function loadPaymentStatuses(): Promise<Map<string, PaymentStatusData>> {
   try {
     const { STORE_FILE } = getStoreConfig();
     await ensureStoreDir();
-    
+
     if (!existsSync(STORE_FILE)) {
       return new Map();
     }
-    
-    const data = await fs.readFile(STORE_FILE, 'utf-8');
+
+    const data = await fs.readFile(STORE_FILE, "utf-8");
     const parsed = JSON.parse(data);
     return new Map(Object.entries(parsed));
   } catch (error) {
-    console.error('[PAYMENT_STORE] Error loading payment statuses:', error);
+    console.error("[PAYMENT_STORE] Error loading payment statuses:", error);
     return new Map();
   }
 }
@@ -95,15 +99,17 @@ async function loadPaymentStatuses(): Promise<Map<string, PaymentStatusData>> {
 /**
  * Save payment statuses to file
  */
-async function savePaymentStatuses(store: Map<string, PaymentStatusData>): Promise<void> {
+async function savePaymentStatuses(
+  store: Map<string, PaymentStatusData>
+): Promise<void> {
   try {
     const { STORE_FILE } = getStoreConfig();
     await ensureStoreDir();
-    
+
     const data = JSON.stringify(Object.fromEntries(store), null, 2);
-    await fs.writeFile(STORE_FILE, data, 'utf-8');
+    await fs.writeFile(STORE_FILE, data, "utf-8");
   } catch (error) {
-    console.error('[PAYMENT_STORE] Error saving payment statuses:', error);
+    console.error("[PAYMENT_STORE] Error saving payment statuses:", error);
     throw error;
   }
 }
@@ -111,7 +117,7 @@ async function savePaymentStatuses(store: Map<string, PaymentStatusData>): Promi
 /**
  * Initialize a new payment status entry
  * Called when a payment request is created
- * 
+ *
  * @param address - Bitcoin testnet address
  * @param expectedAmount - Expected payment amount in BTC (optional)
  * @param webhookId - BlockCypher webhook ID (optional)
@@ -122,7 +128,7 @@ export async function initializePaymentStatus(
   webhookId?: string
 ): Promise<void> {
   const now = Date.now();
-  
+
   const initialStatus: PaymentStatusData = {
     address,
     status: PaymentStatus.AWAITING_PAYMENT,
@@ -135,18 +141,22 @@ export async function initializePaymentStatus(
   const store = await loadPaymentStatuses();
   store.set(address, initialStatus);
   await savePaymentStatuses(store);
-  
-  console.log("[PAYMENT_STORE] Initialized payment status for address:", address, {
-    expectedAmount,
-    webhookId,
-    status: PaymentStatus.AWAITING_PAYMENT,
-  });
+
+  console.log(
+    "[PAYMENT_STORE] Initialized payment status for address:",
+    address,
+    {
+      expectedAmount,
+      webhookId,
+      status: PaymentStatus.AWAITING_PAYMENT,
+    }
+  );
 }
 
 /**
  * Update payment status from webhook data
  * Called when BlockCypher sends a webhook notification
- * 
+ *
  * @param address - Bitcoin testnet address
  * @param status - New payment status
  * @param transactionId - Transaction hash/ID
@@ -166,7 +176,7 @@ export async function updatePaymentStatus(
 ): Promise<void> {
   const store = await loadPaymentStatuses();
   const existingStatus = store.get(address);
-  
+
   if (!existingStatus) {
     console.warn(
       "[PAYMENT_STORE] Attempted to update non-existent payment status for address:",
@@ -200,7 +210,7 @@ export async function updatePaymentStatus(
 
   store.set(address, updatedStatus);
   await savePaymentStatuses(store);
-  
+
   console.log("[PAYMENT_STORE] Updated payment status for address:", address, {
     status,
     transactionId,
@@ -212,7 +222,7 @@ export async function updatePaymentStatus(
 
 /**
  * Check if an address is being monitored for payments
- * 
+ *
  * @param address - Bitcoin testnet address
  * @returns True if the address exists in the store
  */
@@ -224,16 +234,21 @@ export async function isAddressMonitored(address: string): Promise<boolean> {
 /**
  * Get payment status for a specific address
  * Returns a client-safe subset of the stored data
- * 
+ *
  * @param address - Bitcoin testnet address
  * @returns Payment status response or null if not found
  */
-export async function getPaymentStatus(address: string): Promise<PaymentStatusResponse | null> {
+export async function getPaymentStatus(
+  address: string
+): Promise<PaymentStatusResponse | null> {
   const store = await loadPaymentStatuses();
   const statusData = store.get(address);
-  
+
   if (!statusData) {
-    console.log("[PAYMENT_STORE] Payment status not found for address:", address);
+    console.log(
+      "[PAYMENT_STORE] Payment status not found for address:",
+      address
+    );
     return null;
   }
 
@@ -251,7 +266,7 @@ export async function getPaymentStatus(address: string): Promise<PaymentStatusRe
 
 /**
  * Check if a payment status exists for an address
- * 
+ *
  * @param address - Bitcoin testnet address
  * @returns True if status exists, false otherwise
  */
@@ -263,19 +278,19 @@ export async function hasPaymentStatus(address: string): Promise<boolean> {
 /**
  * Delete payment status for an address
  * Useful for cleanup or testing
- * 
+ *
  * @param address - Bitcoin testnet address
  * @returns True if deleted, false if not found
  */
 export async function deletePaymentStatus(address: string): Promise<boolean> {
   const store = await loadPaymentStatuses();
   const deleted = store.delete(address);
-  
+
   if (deleted) {
     await savePaymentStatuses(store);
     console.log("[PAYMENT_STORE] Deleted payment status for address:", address);
   }
-  
+
   return deleted;
 }
 
@@ -294,16 +309,21 @@ export async function clearAllPaymentStatuses(): Promise<void> {
 /**
  * Get full payment data for a specific address
  * Returns complete PaymentStatusData including all metadata
- * 
+ *
  * @param address - Bitcoin testnet address
  * @returns Full payment status data or null if not found
  */
-export async function getFullPaymentData(address: string): Promise<PaymentStatusData | null> {
+export async function getFullPaymentData(
+  address: string
+): Promise<PaymentStatusData | null> {
   const store = await loadPaymentStatuses();
   const statusData = store.get(address);
-  
+
   if (!statusData) {
-    console.log("[PAYMENT_STORE] Full payment data not found for address:", address);
+    console.log(
+      "[PAYMENT_STORE] Full payment data not found for address:",
+      address
+    );
     return null;
   }
 
@@ -314,17 +334,17 @@ export async function getFullPaymentData(address: string): Promise<PaymentStatus
 /**
  * Get all payment statuses (for debugging/monitoring)
  * Returns a safe copy of the data
- * 
+ *
  * @returns Array of all payment statuses
  */
 export async function getAllPaymentStatuses(): Promise<PaymentStatusData[]> {
   const store = await loadPaymentStatuses();
-  return Array.from(store.values()).map(status => ({ ...status }));
+  return Array.from(store.values()).map((status) => ({ ...status }));
 }
 
 /**
  * Get store statistics (for monitoring)
- * 
+ *
  * @returns Store statistics
  */
 export async function getStoreStats(): Promise<{
@@ -335,14 +355,14 @@ export async function getStoreStats(): Promise<{
 }> {
   const store = await loadPaymentStatuses();
   const statuses = Array.from(store.values());
-  
+
   const statusCounts = statuses.reduce((acc, status) => {
     acc[status.status] = (acc[status.status] || 0) + 1;
     return acc;
   }, {} as Record<PaymentStatus, number>);
 
-  const timestamps = statuses.map(s => s.createdAt).sort();
-  
+  const timestamps = statuses.map((s) => s.createdAt).sort();
+
   return {
     totalEntries: store.size,
     statusCounts,
@@ -354,7 +374,7 @@ export async function getStoreStats(): Promise<{
 /**
  * Optional: Cleanup old entries (if needed for memory management)
  * Removes entries older than the specified age
- * 
+ *
  * @param maxAgeMs - Maximum age in milliseconds
  * @returns Number of entries removed
  */
